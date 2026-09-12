@@ -8,9 +8,30 @@ import json
 
 import anthropic
 
+from pipeline.clasificador_paginas import TAXONOMIA
 from pipeline.pdf_utils import paginas_a_imagenes_base64
 
 MODEL = "claude-sonnet-5"
+
+_TIPOS_VALIDOS = ", ".join(t for t, _ in TAXONOMIA)
+
+# Salvaguarda contra errores de clasificación (Haiku, baja resolución) que Sonnet
+# puede detectar al mirar el documento de cerca para extraer campos. Encontrado con
+# datos reales: un certificado de curso SENA rotado 90° fue clasificado como
+# "certificado_alturas" con confianza alta cuando en realidad era un curso de
+# capacitación sin relación con alturas — el clasificador "adivinó" en vez de leer
+# el texto rotado. La extracción, al mirar el documento más de cerca, debe frenar
+# esa clasificación en vez de heredarla ciegamente.
+_VERIFICACION_INSTRUCCION = (
+    "\n\nIMPORTANTE: antes de extraer los campos de abajo, verifica que este documento "
+    "realmente corresponde al tipo indicado. Si el contenido real es claramente de otro "
+    f"tipo (uno de: {_TIPOS_VALIDOS}), NO extraigas los campos del tipo original — en su "
+    'lugar responde SOLO con: {"clasificacion_correcta": false, "tipo_real_sugerido": '
+    '"<tipo real>", "motivo_discrepancia": "<qué es realmente el documento y por qué no '
+    'corresponde al tipo indicado>"}.\n'
+    'Si el documento SÍ corresponde al tipo indicado, agrega el campo "clasificacion_correcta": true '
+    "a los campos normales de abajo y extráelos todos."
+)
 
 _INSTRUCCIONES_POR_TIPO = {
     "cedula": (
@@ -66,6 +87,8 @@ _INSTRUCCIONES_POR_TIPO = {
     ),
 }
 
+_INSTRUCCIONES_POR_TIPO = {tipo: instr + _VERIFICACION_INSTRUCCION for tipo, instr in _INSTRUCCIONES_POR_TIPO.items()}
+
 
 def _extraer_json_objeto(texto: str) -> dict:
     inicio = texto.find("{")
@@ -103,5 +126,6 @@ def extraer_documento(pdf_path: str, tipo: str, paginas: list[int], client: anth
         "tipo": tipo,
         "paginas": paginas,
         "datos": datos,
+        "requiere_reclasificacion": datos.get("clasificacion_correcta") is False,
         "uso": {"input_tokens": response.usage.input_tokens, "output_tokens": response.usage.output_tokens},
     }
