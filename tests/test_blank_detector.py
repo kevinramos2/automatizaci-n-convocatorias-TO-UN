@@ -29,7 +29,7 @@ def _pagina_con_sello_pequeno() -> fitz.Page:
     doc = fitz.open()
     page = doc.new_page()
     # Simula un sello/firma suelta: un pequeño círculo relleno en una esquina.
-    page.draw_circle((100, 100), 15, color=(0, 0, 0), fill=(0, 0, 0))
+    page.draw_circle((100, 100), 40, color=(0, 0, 0), fill=(0, 0, 0))
     return page
 
 
