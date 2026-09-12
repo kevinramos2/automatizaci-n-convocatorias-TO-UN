@@ -1,6 +1,6 @@
 """Pruebas del detector de páginas en blanco con PDFs sintéticos.
 
-Complementan (no sustituyen) la calibración contra el legajo real de 38 páginas
+Complementan (no sustituyen) la calibración contra el expediente real de 38 páginas
 hecha en Fase 1 — en particular, el caso de la página gris uniforme reproduce el
 falso positivo real encontrado ahí (3 páginas con ~95% de "tinta" pero sin
 contenido, que el ratio simple clasificaba mal y que motivó pasar a std).

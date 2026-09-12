@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from pipeline.cache_legajos import CARPETA_CACHE, cargar_resultado, existe_en_cache, guardar_resultado, hash_archivo
+from pipeline.cache_expedientes import CARPETA_CACHE, cargar_resultado, existe_en_cache, guardar_resultado, hash_archivo
 from pipeline.validacion_admision import ResultadoRegla
 
 RESULTADO_FALSO = {
@@ -29,12 +29,12 @@ def test_hash_es_determinista():
 
 
 def test_no_existe_en_cache_antes_de_guardar():
-    h = hash_archivo(b"legajo de prueba unico 12345")
+    h = hash_archivo(b"expediente de prueba unico 12345")
     assert not existe_en_cache(h)
 
 
 def test_guardar_y_cargar_reconstruye_resultadoregla():
-    h = hash_archivo(b"legajo de prueba unico 67890")
+    h = hash_archivo(b"expediente de prueba unico 67890")
     try:
         guardar_resultado(h, RESULTADO_FALSO)
         assert existe_en_cache(h)

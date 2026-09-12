@@ -1,8 +1,8 @@
-"""Caché en disco de legajos ya procesados, por hash del PDF.
+"""Caché en disco de expedientes ya procesados, por hash del PDF.
 
 Streamlit vuelve a ejecutar todo el script en cada interacción del usuario —
 sin esto, cada clic en el panel podría volver a llamar a la API de Claude y
-cobrar de nuevo por el mismo legajo. Solo se procesa (y se cobra) la primera
+cobrar de nuevo por el mismo expediente. Solo se procesa (y se cobra) la primera
 vez que se ve un PDF; después se reutiliza el resultado guardado.
 """
 import hashlib
@@ -12,7 +12,7 @@ from pathlib import Path
 
 from pipeline.validacion_admision import ResultadoRegla
 
-CARPETA_CACHE = Path(__file__).parent.parent / "legajos_procesados"
+CARPETA_CACHE = Path(__file__).parent.parent / "expedientes_procesados"
 
 
 def hash_archivo(contenido_bytes: bytes) -> str:
@@ -38,11 +38,11 @@ def guardar_pdf(hash_: str, contenido_bytes: bytes) -> Path:
     return ruta
 
 
-def guardar_resultado(hash_: str, resultado_procesar_legajo: dict) -> None:
-    """resultado_procesar_legajo: el dict que devuelve pipeline.procesar_legajo.procesar_legajo()."""
+def guardar_resultado(hash_: str, resultado_procesar_expediente: dict) -> None:
+    """resultado_procesar_expediente: el dict que devuelve pipeline.procesar_expediente.procesar_expediente()."""
     CARPETA_CACHE.mkdir(exist_ok=True)
-    serializable = dict(resultado_procesar_legajo)
-    serializable["resultados_validacion"] = {k: asdict(r) for k, r in resultado_procesar_legajo["resultados_validacion"].items()}
+    serializable = dict(resultado_procesar_expediente)
+    serializable["resultados_validacion"] = {k: asdict(r) for k, r in resultado_procesar_expediente["resultados_validacion"].items()}
     with open(_ruta_resultado(hash_), "w", encoding="utf-8") as f:
         json.dump(serializable, f, ensure_ascii=False, indent=2)
 

@@ -85,7 +85,7 @@ def test_constancia_estudio_valida_cumple():
 
 
 def test_experiencia_con_fecha_fin_nula_se_cuenta_hasta_cierre_inscripcion():
-    # Caso real (legajo de ejemplo): "sigue laborando a la fecha", constancia sin fecha de fin.
+    # Caso real (expediente de ejemplo): "sigue laborando a la fecha", constancia sin fecha de fin.
     experiencias = [
         {"fecha_inicio": "2013-01-28", "fecha_fin": None, "relacionado": "SI", "formato_valido": True},
     ]

@@ -1,7 +1,7 @@
 """Prueba la lógica de reintento de reclasificación de _extraer_documento_logico
 
-con un cliente Anthropic simulado (sin costo de API). El resto de procesar_legajo()
-se valida con una corrida real contra el legajo de ejemplo (ver scripts/).
+con un cliente Anthropic simulado (sin costo de API). El resto de procesar_expediente()
+se valida con una corrida real contra el expediente de ejemplo (ver scripts/).
 """
 import json
 import sys
@@ -11,7 +11,7 @@ from pathlib import Path
 import pymupdf as fitz
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from pipeline.procesar_legajo import _extraer_documento_logico, _mejor_candidato
+from pipeline.procesar_expediente import _extraer_documento_logico, _mejor_candidato
 from pipeline.validacion_admision import validar_evaluacion_medica
 
 

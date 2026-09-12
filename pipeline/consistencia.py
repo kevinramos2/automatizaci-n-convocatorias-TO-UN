@@ -44,7 +44,7 @@ def cruzar_experiencia_formulario_vs_constancias(
     """Compara cada fila de experiencia del formulario contra la constancia laboral
 
     de la misma entidad (emparejadas por nombre de entidad, no por posición —
-    el orden en el formulario y el orden de las constancias en el legajo no
+    el orden en el formulario y el orden de las constancias en el expediente no
     tienen por qué coincidir). Devuelve una lista de inconsistencias encontradas;
     lista vacía significa que todo coincidió dentro de la tolerancia configurada.
     """

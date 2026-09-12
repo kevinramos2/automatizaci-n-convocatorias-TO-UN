@@ -100,7 +100,7 @@ def _items_para_relacionado(estudios: list[dict], laborales: list[dict]) -> list
     return items
 
 
-def procesar_legajo(pdf_path: str, criterios: dict, cfg: dict, client: anthropic.Anthropic | None = None) -> dict:
+def procesar_expediente(pdf_path: str, criterios: dict, cfg: dict, client: anthropic.Anthropic | None = None) -> dict:
     client = client or anthropic.Anthropic()
     uso_total = _uso_vacio()
 

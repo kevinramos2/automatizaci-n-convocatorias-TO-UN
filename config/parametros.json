@@ -22,7 +22,7 @@
     "umbral_coincidencia_entidad": 0.5
   },
   "deteccion_paginas_blancas": {
-    "_comentario": "Calibrado contra legajo-ejemplo-01.pdf (38 páginas). Señal principal: std de grises, no el ratio de no-blancos (el ratio falla con escaneos oscuros uniformes: 3 páginas de exámenes anexos tenían ~95% de 'tinta' por un artefacto de escaneo gris, pero std 3.3-5.5, y el clasificador de Claude las confirmó como sin contenido real). Los 11 reversos en blanco reales dieron std 2.4-4.3; el contenido real más débil observado dio std 25.1. Reajustar si un legajo futuro se sale de este rango.",
+    "_comentario": "Calibrado contra expediente-ejemplo-01.pdf (38 páginas). Señal principal: std de grises, no el ratio de no-blancos (el ratio falla con escaneos oscuros uniformes: 3 páginas de exámenes anexos tenían ~95% de 'tinta' por un artefacto de escaneo gris, pero std 3.3-5.5, y el clasificador de Claude las confirmó como sin contenido real). Los 11 reversos en blanco reales dieron std 2.4-4.3; el contenido real más débil observado dio std 25.1. Reajustar si un expediente futuro se sale de este rango.",
     "dpi_render": 100,
     "umbral_std_blanco": 10,
     "umbral_std_ambiguo": 20

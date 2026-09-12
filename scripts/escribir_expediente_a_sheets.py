@@ -1,4 +1,4 @@
-"""Escribe los resultados de un legajo ya procesado en las 5 hojas de Google Sheets.
+"""Escribe los resultados de un expediente ya procesado en las 5 hojas de Google Sheets.
 
 No llama a la API de Claude — usa los JSON ya generados en data-ejemplo/ y
 llama solo a la API de Google Sheets (gratuita). Requiere service-account.json
@@ -45,9 +45,9 @@ def por_tipo(extracciones, tipo):
 
 def main():
     cfg = json.load(open(RAIZ / "config" / "parametros.json", encoding="utf-8"))
-    extracciones = json.load(open(RAIZ / "data-ejemplo" / "extraccion-legajo-01.json", encoding="utf-8"))
-    clasificacion = json.load(open(RAIZ / "data-ejemplo" / "clasificacion-legajo-01.json", encoding="utf-8"))["resultados"]
-    pdf_path = str(RAIZ / "data-ejemplo" / "legajo-ejemplo-01.pdf")
+    extracciones = json.load(open(RAIZ / "data-ejemplo" / "extraccion-expediente-01.json", encoding="utf-8"))
+    clasificacion = json.load(open(RAIZ / "data-ejemplo" / "clasificacion-expediente-01.json", encoding="utf-8"))["resultados"]
+    pdf_path = str(RAIZ / "data-ejemplo" / "expediente-ejemplo-01.pdf")
 
     formulario = por_tipo(extracciones, "formulario_inscripcion")[0]["datos"]
     cedula = por_tipo(extracciones, "cedula")[0]["datos"]

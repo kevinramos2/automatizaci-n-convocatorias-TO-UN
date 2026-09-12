@@ -1,7 +1,7 @@
 """Clasificación de páginas por tipo de documento (Sección 2 y Fase 1 del plan).
 
 Usa Haiku (barato) porque es una tarea de clasificación, no de extracción fina.
-Envía todas las páginas de un legajo en una sola llamada para minimizar costo
+Envía todas las páginas de un expediente en una sola llamada para minimizar costo
 y latencia (en vez de una llamada por página).
 """
 import json
@@ -27,7 +27,7 @@ TAXONOMIA = [
 _SYSTEM_PROMPT = (
     "Eres un clasificador de documentos para un proceso de selección de personal de la "
     "Universidad Nacional de Colombia. Vas a recibir una o más imágenes, cada una es una "
-    "página escaneada de un legajo de un aspirante. Clasifica CADA página en exactamente "
+    "página escaneada de un expediente de un aspirante. Clasifica CADA página en exactamente "
     "uno de estos tipos:\n\n"
     + "\n".join(f"- {tipo}: {desc}" for tipo, desc in TAXONOMIA)
     + "\n\nADEMÁS, para cada página indica si `inicia_documento_nuevo`:\n"
@@ -111,7 +111,7 @@ def clasificar_paginas(
     dpi: int = 100,
 ) -> dict:
     """Clasifica en lotes de `tamano_lote` páginas por llamada (evita exceder el límite
-    de tamaño de request de la API cuando el legajo tiene muchas páginas con contenido).
+    de tamaño de request de la API cuando el expediente tiene muchas páginas con contenido).
 
     Pasa el tipo de la última página del lote anterior como contexto al siguiente lote,
     para que `inicia_documento_nuevo` sea correcto también en los bordes de lote.

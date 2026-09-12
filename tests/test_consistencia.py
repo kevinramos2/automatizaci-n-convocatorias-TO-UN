@@ -26,7 +26,7 @@ def test_nombres_de_entidad_con_abreviatura_igual_coinciden():
     assert "detalle" in inconsistencias[0] and inconsistencias[0]["detalle"]
 
 
-def test_caso_real_legajo_ejemplo_detecta_discrepancia_de_fecha_fin():
+def test_caso_real_expediente_ejemplo_detecta_discrepancia_de_fecha_fin():
     # Caso real encontrado: formulario dice hasta 2026-09-07, constancia oficial dice 2027-02-02.
     formulario = [{"entidad": "Universidad Nacional de Col.", "fecha_desde": "2024-10-01", "fecha_hasta": "2026-09-07"}]
     constancias = [{"entidad": "Universidad Nacional de Colombia - Sede Medellín", "fecha_inicio": "2024-10-01", "fecha_fin": "2027-02-02"}]

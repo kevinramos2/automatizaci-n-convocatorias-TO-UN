@@ -1,4 +1,4 @@
-"""Detección local de páginas en blanco (reversos sin contenido) en un legajo escaneado.
+"""Detección local de páginas en blanco (reversos sin contenido) en un expediente escaneado.
 
 No usa la API de Claude: mide contenido visual de la página renderizada a bajo DPI.
 Ver Sección 2.3 y Fase 1 de plan-automatizacion-convocatoria.md.
@@ -29,7 +29,7 @@ def _estadisticas_pagina(page: fitz.Page, dpi: int) -> tuple[float, float]:
     variación de tono; una página con contenido real (texto, líneas, tablas)
     siempre mezcla tonos claros y oscuros y por eso tiene std alta. El ratio de
     no-blancos por sí solo falla con escaneos oscuros uniformes (ver Fase 1:
-    3 páginas del legajo de ejemplo con ~95% de "tinta" pero std < 6, sin
+    3 páginas del expediente de ejemplo con ~95% de "tinta" pero std < 6, sin
     contenido real legible — el propio clasificador de Claude las marcó como
     en blanco/vacías).
     """

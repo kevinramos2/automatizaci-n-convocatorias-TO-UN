@@ -1,4 +1,4 @@
-"""Demo de extremo a extremo: toma la extracción ya guardada de un legajo real y
+"""Demo de extremo a extremo: toma la extracción ya guardada de un expediente real y
 corre el motor de validación de admisión + una vista previa del scoring.
 
 No llama a la API — usa los JSON ya generados en data-ejemplo/. Sirve para ver
@@ -41,10 +41,10 @@ def por_tipo(extracciones, tipo):
 
 def main():
     cfg = cargar_config()
-    extracciones = cargar("extraccion-legajo-01.json")
+    extracciones = cargar("extraccion-expediente-01.json")
 
     print("=" * 70)
-    print("DEMO PIPELINE COMPLETO — legajo-ejemplo-01.pdf")
+    print("DEMO PIPELINE COMPLETO — expediente-ejemplo-01.pdf")
     print("=" * 70)
     print("\nLos 6 ítems del checklist usan datos reales extraídos por la API.\n")
 
@@ -112,7 +112,7 @@ def main():
           "resultado_prueba_practica y resultado_prueba_teorica aprobados. Esto es\n"
           "solo para mostrar que la fórmula corre correctamente con datos reales,\n"
           "USANDO relacionado=SI (la sugerencia del clasificador) hipotéticamente:")
-    certificados_hipoteticos = []  # este legajo no trajo certificados CAP/CAO/curso corto
+    certificados_hipoteticos = []  # este expediente no trajo certificados CAP/CAO/curso corto
     experiencias_hipoteticas = [{**e, "relacionado": "SI"} for e in laborales_crudas]
     preview = calcular_puntaje_hoja_vida(certificados_hipoteticos, experiencias_hipoteticas, cfg)
     print(json.dumps(preview, ensure_ascii=False, indent=2))

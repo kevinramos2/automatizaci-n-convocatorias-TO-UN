@@ -3,7 +3,7 @@
 Usa el campo `inicia_documento_nuevo` que produce el clasificador (Fase 1) en vez de
 asumir que páginas consecutivas del mismo tipo son siempre un solo documento físico:
 dos constancias laborales de dos empleadores distintos son dos documentos, aunque
-ambas sean del mismo tipo y estén una detrás de la otra en el legajo.
+ambas sean del mismo tipo y estén una detrás de la otra en el expediente.
 """
 
 

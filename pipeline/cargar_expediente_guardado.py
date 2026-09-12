@@ -1,4 +1,4 @@
-"""Reconstruye el resultado completo de un legajo (validación + consistencia)
+"""Reconstruye el resultado completo de un expediente (validación + consistencia)
 
 a partir de los JSON de clasificación/extracción ya guardados en disco — sin
 volver a llamar a la API de Claude. Usado por el panel de revisión (Fase 5).

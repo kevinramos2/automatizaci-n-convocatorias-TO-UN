@@ -1,9 +1,9 @@
 """Panel de revisión humana (Fase 5 del plan).
 
-Permite elegir la convocatoria (TO-01/TO-02), adjuntar el legajo (PDF) de un
+Permite elegir la convocatoria (TO-01/TO-02), adjuntar el expediente (PDF) de un
 aspirante, procesarlo con la API de Claude, y revisar/confirmar los ítems que
 el sistema nunca decide solo (firma, relacionado con el cargo) antes de
-guardar en Google Sheets. Cada legajo se procesa una sola vez — se cachea en
+guardar en Google Sheets. Cada expediente se procesa una sola vez — se cachea en
 disco por hash del archivo para no volver a cobrar la API en cada recarga.
 
 Uso: streamlit run app_revision.py
@@ -18,12 +18,12 @@ import anthropic
 import streamlit as st
 from dotenv import load_dotenv
 
-from pipeline.cache_legajos import cargar_resultado, existe_en_cache, guardar_pdf, guardar_resultado, hash_archivo, ruta_pdf
+from pipeline.cache_expedientes import cargar_resultado, existe_en_cache, guardar_pdf, guardar_resultado, hash_archivo, ruta_pdf
 from pipeline.consistencia import cruzar_experiencia_formulario_vs_constancias
 from pipeline.esquema_sheets import AUDITORIA, MAESTRO
 from pipeline.mapeo_maestro import construir_fila_maestro
 from pipeline.pdf_utils import pagina_a_imagen_base64
-from pipeline.procesar_legajo import procesar_legajo
+from pipeline.procesar_expediente import procesar_expediente
 from pipeline.sheets_client import abrir_spreadsheet, agregar_filas, asegurar_hojas, autenticar, upsert_fila
 from pipeline.validacion_admision import (
     evaluar_admision,
@@ -66,7 +66,7 @@ def _cargar_cfg():
 
 
 def _normalizar_documentos(documentos_extraidos: list[dict]) -> list[dict]:
-    """Uniforma el resultado de procesar_legajo() a la misma forma que se usa
+    """Uniforma el resultado de procesar_expediente() a la misma forma que se usa
 
     para buscar páginas fuente por tipo de documento (para mostrar imágenes).
     """
@@ -90,17 +90,17 @@ def _procesar_y_cachear(archivo_subido, criterios: dict, cfg: dict) -> dict:
     hash_ = hash_archivo(contenido)
 
     if existe_en_cache(hash_):
-        st.toast("Este legajo ya se había procesado antes — se cargó del caché, sin costo de API.", icon="✅")
+        st.toast("Este expediente ya se había procesado antes — se cargó del caché, sin costo de API.")
         resultado = cargar_resultado(hash_)
     else:
         ruta = guardar_pdf(hash_, contenido)
-        with st.spinner("Procesando legajo (clasificación + extracción + validación)... puede tardar 1-2 minutos."):
+        with st.spinner("Procesando expediente (clasificación + extracción + validación)... puede tardar 1-2 minutos."):
             client = anthropic.Anthropic()
-            resultado = procesar_legajo(str(ruta), criterios, cfg, client=client)
+            resultado = procesar_expediente(str(ruta), criterios, cfg, client=client)
             guardar_resultado(hash_, resultado)
         uso = resultado["uso_total"]
         costo = uso["input_tokens"] / 1e6 * 2.00 + uso["output_tokens"] / 1e6 * 10.00
-        st.toast(f"Legajo procesado. Costo aprox: ${costo:.4f} USD ({uso['input_tokens']} in / {uso['output_tokens']} out tokens).", icon="💰")
+        st.toast(f"Expediente procesado. Costo aprox: ${costo:.4f} USD ({uso['input_tokens']} in / {uso['output_tokens']} out tokens).")
 
     resultado["_hash"] = hash_
     resultado["pdf_path"] = str(ruta_pdf(hash_))
@@ -116,43 +116,43 @@ def _barra_lateral(cfg: dict) -> dict | None:
     criterios = json.load(open(RAIZ / _CONVOCATORIAS[convocatoria_id]["criterios"], encoding="utf-8"))
 
     st.sidebar.divider()
-    fuente = st.sidebar.radio("Legajo a revisar", ["Subir un legajo nuevo", "Legajo de ejemplo (ya procesado, gratis)"])
+    fuente = st.sidebar.radio("Expediente a revisar", ["Subir un expediente nuevo", "Expediente de ejemplo (ya procesado, gratis)"])
 
-    if fuente == "Legajo de ejemplo (ya procesado, gratis)":
-        from pipeline.cargar_legajo_guardado import cargar_resultado_desde_json
-        extraccion_path = RAIZ / "data-ejemplo" / "extraccion-legajo-01.json"
+    if fuente == "Expediente de ejemplo (ya procesado, gratis)":
+        from pipeline.cargar_expediente_guardado import cargar_resultado_desde_json
+        extraccion_path = RAIZ / "data-ejemplo" / "extraccion-expediente-01.json"
         if not extraccion_path.exists():
-            st.sidebar.warning("No hay legajo de ejemplo guardado en este equipo.")
+            st.sidebar.warning("No hay expediente de ejemplo guardado en este equipo.")
             return None
-        resultado = cargar_resultado_desde_json(str(extraccion_path), cfg, str(RAIZ / "data-ejemplo" / "relacionado-legajo-01.json"))
+        resultado = cargar_resultado_desde_json(str(extraccion_path), cfg, str(RAIZ / "data-ejemplo" / "relacionado-expediente-01.json"))
         extracciones_crudas = json.load(open(extraccion_path, encoding="utf-8"))
-        resultado["pdf_path"] = str(RAIZ / "data-ejemplo" / "legajo-ejemplo-01.pdf")
+        resultado["pdf_path"] = str(RAIZ / "data-ejemplo" / "expediente-ejemplo-01.pdf")
         resultado["documentos"] = [{"tipo": e["tipo"], "paginas": e["paginas"], "datos": e["datos"]} for e in extracciones_crudas if not e.get("requiere_reclasificacion")]
         return resultado
 
-    archivo_subido = st.sidebar.file_uploader("PDF del legajo del aspirante", type="pdf")
+    archivo_subido = st.sidebar.file_uploader("PDF del expediente del aspirante", type="pdf")
     if archivo_subido is None:
         st.sidebar.info("Adjunta un PDF para procesarlo.")
         return None
 
     hash_actual = hash_archivo(archivo_subido.getvalue())
-    resultado_en_sesion = st.session_state.get("resultado_legajo")
+    resultado_en_sesion = st.session_state.get("resultado_expediente")
     if resultado_en_sesion and resultado_en_sesion.get("_hash") != hash_actual:
         # Es un archivo distinto al ya cargado — no reutilizar sin procesar explícitamente.
-        st.session_state.pop("resultado_legajo", None)
+        st.session_state.pop("resultado_expediente", None)
         resultado_en_sesion = None
 
     if resultado_en_sesion is None:
         aviso = (
-            "Este legajo ya fue procesado antes — se cargará del caché, sin costo."
+            "Este expediente ya fue procesado antes — se cargará del caché, sin costo."
             if existe_en_cache(hash_actual)
-            else "Procesar un legajo nuevo llama a la API de Claude (~$0.15-0.25 USD por legajo)."
+            else "Procesar un expediente nuevo llama a la API de Claude (~$0.15-0.25 USD por expediente)."
         )
         st.sidebar.caption(aviso)
-        if st.sidebar.button("Procesar legajo", type="primary"):
-            st.session_state["resultado_legajo"] = _procesar_y_cachear(archivo_subido, criterios, cfg)
+        if st.sidebar.button("Procesar expediente", type="primary"):
+            st.session_state["resultado_expediente"] = _procesar_y_cachear(archivo_subido, criterios, cfg)
 
-    return st.session_state.get("resultado_legajo")
+    return st.session_state.get("resultado_expediente")
 
 
 def main():
@@ -161,7 +161,7 @@ def main():
 
     if resultado is None:
         st.title("Panel de revisión — Proceso de selección TO 2026")
-        st.info("Elige la convocatoria y un legajo en la barra lateral para comenzar.")
+        st.info("Elige la convocatoria y un expediente en la barra lateral para comenzar.")
         return
 
     pdf_path = resultado["pdf_path"]
@@ -180,7 +180,7 @@ def main():
     col_c.metric("Estado sugerido", resultado["decision"]["estado_sugerido"])
 
     if resultado["inconsistencias"]:
-        with st.expander(f"⚠️ {len(resultado['inconsistencias'])} inconsistencia(s) detectada(s) automáticamente", expanded=True):
+        with st.expander(f"{len(resultado['inconsistencias'])} inconsistencia(s) detectada(s) automáticamente", expanded=True):
             for inc in resultado["inconsistencias"]:
                 st.warning(inc["detalle"])
 

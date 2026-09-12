@@ -63,7 +63,7 @@ def asegurar_hojas(spreadsheet: gspread.Spreadsheet, esquemas: dict = TODAS_LAS_
 def upsert_fila(worksheet: gspread.Worksheet, esquema: list[tuple[str, str]], clave_id: str, valor_id: str, datos: dict) -> str:
     """Inserta o actualiza (por `clave_id`) una fila. Devuelve "creada" o "actualizada".
 
-    Evita duplicar la fila de un aspirante si su legajo se reprocesa.
+    Evita duplicar la fila de un aspirante si su expediente se reprocesa.
     """
     col_id = claves(esquema).index(clave_id) + 1
     fila = fila_desde_dict(esquema, datos)

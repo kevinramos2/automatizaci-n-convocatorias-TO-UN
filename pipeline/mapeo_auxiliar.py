@@ -26,7 +26,7 @@ def construir_filas_auditoria(resultados_clasificacion: list[dict], id_aspirante
 def construir_filas_documentos_candidato(documentos_logicos: list[dict], id_aspirante: str, paginas_blancas: list[int]) -> list[dict]:
     """Una fila por documento lógico (grupo de páginas ya agrupadas), más las páginas
 
-    descartadas como blank=true (trazabilidad — nunca se eliminan del legajo, Sección 2.3).
+    descartadas como blank=true (trazabilidad — nunca se eliminan del expediente, Sección 2.3).
     """
     filas = [
         {

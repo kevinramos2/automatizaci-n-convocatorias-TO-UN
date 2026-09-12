@@ -22,7 +22,7 @@ def test_paginas_del_mismo_documento_se_agrupan():
 
 
 def test_dos_documentos_mismo_tipo_consecutivos_no_se_fusionan():
-    # Caso real del legajo de ejemplo: pag 17 (empresa A) y 19-23 (empresa B, 5 pags)
+    # Caso real del expediente de ejemplo: pag 17 (empresa A) y 19-23 (empresa B, 5 pags)
     # y 23 sigue siendo otro documento nuevo de nuevo (Centro ALISO).
     resultados = [
         _pagina(17, "constancia_laboral", True, motivo="Empresa Todo en Remodelacion"),
