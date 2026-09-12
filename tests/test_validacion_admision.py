@@ -1,0 +1,176 @@
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from pipeline.validacion_admision import (
+    ADMITIDO,
+    CUMPLE,
+    NO_ADMITIDO,
+    NO_CUMPLE,
+    PENDIENTE_DE_REVISION,
+    REQUIERE_REVISION,
+    evaluar_admision,
+    validar_certificado_alturas,
+    validar_cedula,
+    validar_constancia_estudio,
+    validar_constancias_laborales,
+    validar_evaluacion_medica,
+    validar_formulario,
+)
+
+CFG = json.load(open(Path(__file__).parent.parent / "config" / "parametros.json", encoding="utf-8"))
+# fecha_cierre_inscripcion = 2026-09-18, ventana evaluación médica = 30 días => 2026-08-19 a 2026-09-18
+
+
+def test_formulario_completo_pendiente_firma_por_defecto():
+    r = validar_formulario(
+        {"nombre": "Juan Perez", "cedula": "123", "correo": "a@b.com", "celular": "300", "direccion": "Calle 1"},
+        {"nombre": "Juan Perez", "numero": "123"},
+    )
+    assert r.estado == REQUIERE_REVISION
+
+
+def test_formulario_incompleto_no_cumple():
+    r = validar_formulario({"nombre": "Juan Perez", "cedula": "123"}, {})
+    assert r.estado == NO_CUMPLE
+
+
+def test_formulario_cedula_no_coincide_requiere_revision():
+    r = validar_formulario(
+        {"nombre": "Juan Perez", "cedula": "123", "correo": "a@b.com", "celular": "300", "direccion": "Calle 1"},
+        {"nombre": "Juan Perez", "numero": "999"},
+    )
+    assert r.estado == REQUIERE_REVISION
+
+
+def test_formulario_firma_confirmada_cumple():
+    r = validar_formulario(
+        {"nombre": "Juan Perez", "cedula": "123", "correo": "a@b.com", "celular": "300", "direccion": "Calle 1"},
+        {"nombre": "Juan Perez", "numero": "123"},
+        firma_verificada=True,
+    )
+    assert r.estado == CUMPLE
+
+
+def test_cedula_no_aportada():
+    assert validar_cedula({"aportada": False}).estado == NO_CUMPLE
+
+
+def test_cedula_legible_cumple():
+    assert validar_cedula({"aportada": True, "legible": True}).estado == CUMPLE
+
+
+def test_constancia_estudio_solo_boletin_no_cumple():
+    r = validar_constancia_estudio([{"es_boletin": True}])
+    assert r.estado == NO_CUMPLE
+
+
+def test_constancia_estudio_valida_cumple():
+    r = validar_constancia_estudio([{"institucion": "Colegio X", "titulo": "Bachiller", "nivel": "secundaria"}])
+    assert r.estado == CUMPLE
+
+
+def test_experiencia_relacionada_confirmada_supera_minimo_cumple():
+    experiencias = [
+        {"fecha_inicio": "2020-01-01", "fecha_fin": "2021-06-01", "relacionado": "SI", "formato_valido": True},
+    ]
+    r = validar_constancias_laborales(experiencias, CFG)
+    assert r.estado == CUMPLE
+
+
+def test_experiencia_no_relacionada_no_cuenta_no_cumple():
+    experiencias = [
+        {"fecha_inicio": "2020-01-01", "fecha_fin": "2021-06-01", "relacionado": "NO", "formato_valido": True},
+    ]
+    r = validar_constancias_laborales(experiencias, CFG)
+    assert r.estado == NO_CUMPLE
+
+
+def test_experiencia_pendiente_pero_insuficiente_incluso_si_cuenta_no_cumple():
+    experiencias = [
+        {"fecha_inicio": "2024-01-01", "fecha_fin": "2024-03-01", "relacionado": "PENDIENTE", "formato_valido": True},
+    ]
+    r = validar_constancias_laborales(experiencias, CFG)
+    assert r.estado == NO_CUMPLE  # 2 meses, ni siquiera si se confirma llega a 12
+
+
+def test_experiencia_pendiente_que_si_alcanzaria_minimo_requiere_revision():
+    experiencias = [
+        {"fecha_inicio": "2020-01-01", "fecha_fin": "2021-06-01", "relacionado": "PENDIENTE", "formato_valido": True},
+    ]
+    r = validar_constancias_laborales(experiencias, CFG)
+    assert r.estado == REQUIERE_REVISION
+
+
+def test_certificado_alturas_vigente_cumple():
+    r = validar_certificado_alturas({"aportado": True, "fecha_vencimiento": "2026-12-01"}, CFG)
+    assert r.estado == CUMPLE
+
+
+def test_certificado_alturas_vencido_antes_del_cierre_no_cumple():
+    r = validar_certificado_alturas({"aportado": True, "fecha_vencimiento": "2026-09-01"}, CFG)
+    assert r.estado == NO_CUMPLE
+
+
+def test_evaluacion_medica_dentro_de_ventana_cumple():
+    r = validar_evaluacion_medica({"aportado": True, "concepto_aptitud_alturas": True, "fecha_expedicion": "2026-09-01"}, CFG)
+    assert r.estado == CUMPLE
+
+
+def test_evaluacion_medica_fuera_de_ventana_no_cumple():
+    r = validar_evaluacion_medica({"aportado": True, "concepto_aptitud_alturas": True, "fecha_expedicion": "2026-07-01"}, CFG)
+    assert r.estado == NO_CUMPLE
+
+
+def test_evaluacion_medica_sin_aptitud_alturas_no_cumple():
+    r = validar_evaluacion_medica({"aportado": True, "concepto_aptitud_alturas": False, "fecha_expedicion": "2026-09-01"}, CFG)
+    assert r.estado == NO_CUMPLE
+
+
+def test_decision_final_admitido_cuando_todo_cumple():
+    resultados = {"item": validar_formulario(
+        {"nombre": "A", "cedula": "1", "correo": "a@b.com", "celular": "3", "direccion": "d"},
+        {"nombre": "A", "numero": "1"}, firma_verificada=True,
+    )}
+    decision = evaluar_admision(resultados)
+    assert decision["estado_sugerido"] == ADMITIDO
+
+
+def test_decision_final_no_admitido_si_un_item_falla_aunque_otros_pendan():
+    resultados = {
+        "cedula": validar_cedula({"aportada": False}),  # NO_CUMPLE
+        "estudio": validar_constancia_estudio([]),  # NO_CUMPLE
+        "formulario": validar_formulario(
+            {"nombre": "A", "cedula": "1", "correo": "a@b.com", "celular": "3", "direccion": "d"},
+            {"nombre": "A", "numero": "1"},
+        ),  # REQUIERE_REVISION (firma pendiente)
+    }
+    decision = evaluar_admision(resultados)
+    assert decision["estado_sugerido"] == NO_ADMITIDO
+    assert "2.5.3" in decision["causal_sugerida"]
+
+
+def test_decision_final_pendiente_si_nada_falla_pero_algo_esta_pendiente():
+    resultados = {
+        "formulario": validar_formulario(
+            {"nombre": "A", "cedula": "1", "correo": "a@b.com", "celular": "3", "direccion": "d"},
+            {"nombre": "A", "numero": "1"},
+        ),  # REQUIERE_REVISION
+        "cedula": validar_cedula({"aportada": True, "legible": True}),  # CUMPLE
+    }
+    decision = evaluar_admision(resultados)
+    assert decision["estado_sugerido"] == PENDIENTE_DE_REVISION
+
+
+if __name__ == "__main__":
+    import inspect
+    fallos = 0
+    tests = [obj for name, obj in list(globals().items()) if name.startswith("test_") and callable(obj)]
+    for t in tests:
+        try:
+            t()
+        except AssertionError as e:
+            fallos += 1
+            print(f"FALLO: {t.__name__}")
+    print(f"{len(tests) - fallos}/{len(tests)} pruebas pasaron")

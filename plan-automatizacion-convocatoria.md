@@ -129,7 +129,7 @@ Cada curso y cada experiencia laboral debe evaluarse contra el `propósito princ
 
 ### 6.2 Fórmula de puntaje (tomada literalmente del numeral 4.4.2 del aviso)
 
-**Educación relacionada (máx. 50 puntos):** se suman las horas de hasta 5 certificados marcados como relacionados, y se ubica el total en la tabla de bandas:
+**Educación relacionada (máx. 50 puntos):** cada uno de hasta 5 certificados marcados como relacionados se puntúa individualmente según sus propias horas, ubicándolo en la tabla de bandas; esos puntajes se suman con tope en 50. (Nota: es la única lectura consistente con el "máximo 50 puntos" del numeral 4.4.2 — sumar primero las horas y hacer una sola búsqueda en la tabla topa el máximo real en 25, no en 50. Confirmado con el usuario 2026-09-11.)
 
 | Horas acumuladas | Puntos |
 |---|---|
