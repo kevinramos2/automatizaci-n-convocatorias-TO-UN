@@ -16,6 +16,7 @@ __pycache__/
 # queda fuera de git, no solo el PDF -- el JSON extraído tiene el mismo nombre/cédula/empleador.
 data-ejemplo/*
 legajos/
+legajos_procesados/
 TO-26.xlsx
 TO-26.xlsx - Inscripciones.pdf
 

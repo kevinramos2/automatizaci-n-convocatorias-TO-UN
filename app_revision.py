@@ -1,10 +1,10 @@
 """Panel de revisión humana (Fase 5 del plan).
 
-Muestra, para un aspirante, el estado de cada ítem del checklist junto a la
-página fuente, permite confirmar la firma y la clasificación "relacionado con
-el cargo" de cada curso/experiencia, y guarda la revisión en Google Sheets
-(Auditoría + Maestro). Nada se publica como ADMITIDO/NO ADMITIDO sin que la
-persona revisora guarde explícitamente desde aquí.
+Permite elegir la convocatoria (TO-01/TO-02), adjuntar el legajo (PDF) de un
+aspirante, procesarlo con la API de Claude, y revisar/confirmar los ítems que
+el sistema nunca decide solo (firma, relacionado con el cargo) antes de
+guardar en Google Sheets. Cada legajo se procesa una sola vez — se cachea en
+disco por hash del archivo para no volver a cobrar la API en cada recarga.
 
 Uso: streamlit run app_revision.py
 """
@@ -14,14 +14,16 @@ import os
 from datetime import date
 from pathlib import Path
 
+import anthropic
 import streamlit as st
 from dotenv import load_dotenv
 
-from pipeline.cargar_legajo_guardado import cargar_resultado_desde_json
+from pipeline.cache_legajos import cargar_resultado, existe_en_cache, guardar_pdf, guardar_resultado, hash_archivo, ruta_pdf
 from pipeline.consistencia import cruzar_experiencia_formulario_vs_constancias
 from pipeline.esquema_sheets import AUDITORIA, MAESTRO
 from pipeline.mapeo_maestro import construir_fila_maestro
 from pipeline.pdf_utils import pagina_a_imagen_base64
+from pipeline.procesar_legajo import procesar_legajo
 from pipeline.sheets_client import abrir_spreadsheet, agregar_filas, asegurar_hojas, autenticar, upsert_fila
 from pipeline.validacion_admision import (
     evaluar_admision,
@@ -47,6 +49,10 @@ _ETIQUETA_ITEM = {
     "alturas": "5. Certificado de alturas",
     "medica": "6. Evaluación médica",
 }
+_CONVOCATORIAS = {
+    "TO-02": {"etiqueta": "TO-02 · Ayudante de Albañilería", "criterios": "criterios/criterios_TO-02.json"},
+    "TO-01": {"etiqueta": "TO-01 · Oficial de Jardinería", "criterios": "criterios/criterios_TO-01.json"},
+}
 
 
 @st.cache_data
@@ -55,17 +61,23 @@ def _imagen_pagina(pdf_path: str, pagina: int) -> bytes:
 
 
 @st.cache_data
-def _cargar_todo():
-    cfg = json.load(open(RAIZ / "config" / "parametros.json", encoding="utf-8"))
-    extraccion_path = RAIZ / "data-ejemplo" / "extraccion-legajo-01.json"
-    relacionado_path = RAIZ / "data-ejemplo" / "relacionado-legajo-01.json"
-    resultado = cargar_resultado_desde_json(str(extraccion_path), cfg, str(relacionado_path))
-    extracciones_crudas = json.load(open(extraccion_path, encoding="utf-8"))
-    return cfg, resultado, extracciones_crudas
+def _cargar_cfg():
+    return json.load(open(RAIZ / "config" / "parametros.json", encoding="utf-8"))
 
 
-def _paginas_de(extracciones_crudas, tipo):
-    coincidencias = [e["paginas"] for e in extracciones_crudas if e["tipo"] == tipo]
+def _normalizar_documentos(documentos_extraidos: list[dict]) -> list[dict]:
+    """Uniforma el resultado de procesar_legajo() a la misma forma que se usa
+
+    para buscar páginas fuente por tipo de documento (para mostrar imágenes).
+    """
+    return [
+        {"tipo": d["tipo_final"], "paginas": d["paginas"], "datos": d["datos"]}
+        for d in documentos_extraidos if d["tipo_final"] and d["datos"]
+    ]
+
+
+def _paginas_de(documentos: list[dict], tipo: str) -> list[int]:
+    coincidencias = [d["paginas"] for d in documentos if d["tipo"] == tipo]
     return coincidencias[0] if coincidencias else []
 
 
@@ -73,10 +85,87 @@ def _badge(estado: str, texto: str):
     getattr(st, _COLOR_ESTADO.get(estado, "info"))(texto)
 
 
-def main():
-    cfg, resultado, extracciones_crudas = _cargar_todo()
-    pdf_path = str(RAIZ / "data-ejemplo" / "legajo-ejemplo-01.pdf")
+def _procesar_y_cachear(archivo_subido, criterios: dict, cfg: dict) -> dict:
+    contenido = archivo_subido.getvalue()
+    hash_ = hash_archivo(contenido)
 
+    if existe_en_cache(hash_):
+        st.toast("Este legajo ya se había procesado antes — se cargó del caché, sin costo de API.", icon="✅")
+        resultado = cargar_resultado(hash_)
+    else:
+        ruta = guardar_pdf(hash_, contenido)
+        with st.spinner("Procesando legajo (clasificación + extracción + validación)... puede tardar 1-2 minutos."):
+            client = anthropic.Anthropic()
+            resultado = procesar_legajo(str(ruta), criterios, cfg, client=client)
+            guardar_resultado(hash_, resultado)
+        uso = resultado["uso_total"]
+        costo = uso["input_tokens"] / 1e6 * 2.00 + uso["output_tokens"] / 1e6 * 10.00
+        st.toast(f"Legajo procesado. Costo aprox: ${costo:.4f} USD ({uso['input_tokens']} in / {uso['output_tokens']} out tokens).", icon="💰")
+
+    resultado["_hash"] = hash_
+    resultado["pdf_path"] = str(ruta_pdf(hash_))
+    resultado["documentos"] = _normalizar_documentos(resultado.pop("documentos_extraidos", []))
+    return resultado
+
+
+def _barra_lateral(cfg: dict) -> dict | None:
+    st.sidebar.title("Proceso de selección TO 2026")
+    convocatoria_id = st.sidebar.selectbox(
+        "Convocatoria", options=list(_CONVOCATORIAS), format_func=lambda k: _CONVOCATORIAS[k]["etiqueta"],
+    )
+    criterios = json.load(open(RAIZ / _CONVOCATORIAS[convocatoria_id]["criterios"], encoding="utf-8"))
+
+    st.sidebar.divider()
+    fuente = st.sidebar.radio("Legajo a revisar", ["Subir un legajo nuevo", "Legajo de ejemplo (ya procesado, gratis)"])
+
+    if fuente == "Legajo de ejemplo (ya procesado, gratis)":
+        from pipeline.cargar_legajo_guardado import cargar_resultado_desde_json
+        extraccion_path = RAIZ / "data-ejemplo" / "extraccion-legajo-01.json"
+        if not extraccion_path.exists():
+            st.sidebar.warning("No hay legajo de ejemplo guardado en este equipo.")
+            return None
+        resultado = cargar_resultado_desde_json(str(extraccion_path), cfg, str(RAIZ / "data-ejemplo" / "relacionado-legajo-01.json"))
+        extracciones_crudas = json.load(open(extraccion_path, encoding="utf-8"))
+        resultado["pdf_path"] = str(RAIZ / "data-ejemplo" / "legajo-ejemplo-01.pdf")
+        resultado["documentos"] = [{"tipo": e["tipo"], "paginas": e["paginas"], "datos": e["datos"]} for e in extracciones_crudas if not e.get("requiere_reclasificacion")]
+        return resultado
+
+    archivo_subido = st.sidebar.file_uploader("PDF del legajo del aspirante", type="pdf")
+    if archivo_subido is None:
+        st.sidebar.info("Adjunta un PDF para procesarlo.")
+        return None
+
+    hash_actual = hash_archivo(archivo_subido.getvalue())
+    resultado_en_sesion = st.session_state.get("resultado_legajo")
+    if resultado_en_sesion and resultado_en_sesion.get("_hash") != hash_actual:
+        # Es un archivo distinto al ya cargado — no reutilizar sin procesar explícitamente.
+        st.session_state.pop("resultado_legajo", None)
+        resultado_en_sesion = None
+
+    if resultado_en_sesion is None:
+        aviso = (
+            "Este legajo ya fue procesado antes — se cargará del caché, sin costo."
+            if existe_en_cache(hash_actual)
+            else "Procesar un legajo nuevo llama a la API de Claude (~$0.15-0.25 USD por legajo)."
+        )
+        st.sidebar.caption(aviso)
+        if st.sidebar.button("Procesar legajo", type="primary"):
+            st.session_state["resultado_legajo"] = _procesar_y_cachear(archivo_subido, criterios, cfg)
+
+    return st.session_state.get("resultado_legajo")
+
+
+def main():
+    cfg = _cargar_cfg()
+    resultado = _barra_lateral(cfg)
+
+    if resultado is None:
+        st.title("Panel de revisión — Proceso de selección TO 2026")
+        st.info("Elige la convocatoria y un legajo en la barra lateral para comenzar.")
+        return
+
+    pdf_path = resultado["pdf_path"]
+    documentos = resultado["documentos"]
     formulario = resultado["formulario"]
     cedula = resultado["cedula"]
     estudios = resultado["estudios"]
@@ -84,7 +173,7 @@ def main():
     alturas = resultado["alturas"]
     medica = resultado["medica"]
 
-    st.title("Panel de revisión — Proceso TO-02 de 2026")
+    st.title("Panel de revisión — Proceso de selección TO 2026")
     col_a, col_b, col_c = st.columns(3)
     col_a.metric("Aspirante", formulario.get("nombre", "—"))
     col_b.metric("Cédula", cedula.get("numero", "—"))
@@ -96,20 +185,16 @@ def main():
                 st.warning(inc["detalle"])
 
     st.divider()
-
-    # --- Resumen de los 6 ítems ---
     st.subheader("Checklist de admisión")
     for clave, r in resultado["resultados_validacion"].items():
         _badge(r.estado, f"**{_ETIQUETA_ITEM.get(clave, clave)}** — {r.estado.upper()}: {r.motivo}")
 
     st.divider()
-
-    # --- Confirmación de firma (ítem 1) ---
     st.subheader("Confirmar firma del formulario")
     st.caption("Compara la firma de abajo (formulario) contra la firma de la cédula. Nunca se verifica automáticamente.")
     col_firma_1, col_firma_2 = st.columns(2)
-    paginas_formulario = _paginas_de(extracciones_crudas, "formulario_inscripcion")
-    paginas_cedula = _paginas_de(extracciones_crudas, "cedula")
+    paginas_formulario = _paginas_de(documentos, "formulario_inscripcion")
+    paginas_cedula = _paginas_de(documentos, "cedula")
     with col_firma_1:
         st.caption("Formulario (última página, donde firma)")
         if paginas_formulario:
@@ -121,15 +206,11 @@ def main():
 
     firma_verificada = st.radio(
         "¿La firma del formulario coincide con la de la cédula?",
-        options=["Pendiente", "Sí coincide", "No coincide"],
-        horizontal=True,
-        key="firma_verificada",
+        options=["Pendiente", "Sí coincide", "No coincide"], horizontal=True, key="firma_verificada",
     )
     firma_valor = {"Pendiente": None, "Sí coincide": True, "No coincide": False}[firma_verificada]
 
     st.divider()
-
-    # --- Confirmación de "relacionado con el cargo" ---
     st.subheader("Confirmar experiencia y educación relacionada con el cargo")
     st.caption("El sistema sugiere SI/NO, pero nunca decide solo — confirma o corrige cada una.")
 
@@ -169,7 +250,6 @@ def main():
 
     st.divider()
 
-    # --- Recalcular con las confirmaciones del revisor ---
     laborales_confirmadas = [{**e, "relacionado": d} for e, d in zip(laborales, decisiones_relacionado_laboral)]
     estudios_confirmados = [{**e, "relacionado": d} for e, d in zip(estudios, decisiones_relacionado_estudio)]
 
@@ -219,21 +299,15 @@ def main():
             upsert_fila(hojas["Maestro"], MAESTRO, "id_aspirante", id_aspirante, fila_maestro)
 
             filas_auditoria = [{
-                "id_aspirante": id_aspirante,
-                "campo": "firma_verificada",
-                "valor_extraido_ia": "pendiente",
-                "valor_corregido_humano": firma_verificada,
-                "corregido_por": revisado_por,
-                "fecha_correccion": date.today().isoformat(),
+                "id_aspirante": id_aspirante, "campo": "firma_verificada",
+                "valor_extraido_ia": "pendiente", "valor_corregido_humano": firma_verificada,
+                "corregido_por": revisado_por, "fecha_correccion": date.today().isoformat(),
             }]
             for i, (exp, d) in enumerate(zip(laborales, decisiones_relacionado_laboral)):
                 filas_auditoria.append({
-                    "id_aspirante": id_aspirante,
-                    "campo": f"relacionado_laboral_{i}_{exp.get('entidad', '')}",
-                    "valor_extraido_ia": exp.get("relacionado_sugerido", ""),
-                    "valor_corregido_humano": d,
-                    "corregido_por": revisado_por,
-                    "fecha_correccion": date.today().isoformat(),
+                    "id_aspirante": id_aspirante, "campo": f"relacionado_laboral_{i}_{exp.get('entidad', '')}",
+                    "valor_extraido_ia": exp.get("relacionado_sugerido", ""), "valor_corregido_humano": d,
+                    "corregido_por": revisado_por, "fecha_correccion": date.today().isoformat(),
                 })
             agregar_filas(hojas["Auditoría"], AUDITORIA, filas_auditoria)
 
