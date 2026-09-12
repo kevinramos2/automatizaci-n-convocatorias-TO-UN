@@ -36,6 +36,19 @@ def test_formulario_incompleto_no_cumple():
     assert r.estado == NO_CUMPLE
 
 
+def test_formulario_nombre_en_orden_distinto_y_sin_tilde_no_marca_inconsistencia():
+    # Caso real: cédula imprime "APELLIDOS NOMBRES", formulario se llena "NOMBRES APELLIDOS",
+    # y una de las dos fuentes puede traer o no tildes. Mismo nombre, no debe marcar REQUIERE_REVISION
+    # por esta causa (queda pendiente igual por la firma, pero con el motivo correcto).
+    r = validar_formulario(
+        {"nombre": "Andrés Felipe Arroyave Rondon", "cedula": "1035870469", "correo": "a@b.com", "celular": "300", "direccion": "Calle 1"},
+        {"nombre": "ARROYAVE RONDON ANDRES FELIPE", "numero": "1035870469"},
+        firma_verificada=True,
+    )
+    assert r.estado == CUMPLE
+    assert "no coincide" not in r.motivo
+
+
 def test_formulario_cedula_no_coincide_requiere_revision():
     r = validar_formulario(
         {"nombre": "Juan Perez", "cedula": "123", "correo": "a@b.com", "celular": "300", "direccion": "Calle 1"},

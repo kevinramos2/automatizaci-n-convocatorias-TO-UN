@@ -18,6 +18,7 @@ from pipeline.validacion_admision import (
     validar_constancia_estudio,
     validar_constancias_laborales,
     validar_evaluacion_medica,
+    validar_formulario,
 )
 
 RAIZ = Path(__file__).parent.parent
@@ -44,18 +45,32 @@ def main():
     print("=" * 70)
     print("DEMO PIPELINE COMPLETO — legajo-ejemplo-01.pdf")
     print("=" * 70)
-    print("\nNOTA: ítem 1 (formulario de inscripción) aún no tiene prompt de\n"
-          "extracción — se muestra PENDIENTE. Ítems 2-6 usan datos reales\n"
-          "extraídos por la API en la sesión anterior.\n")
+    print("\nLos 6 ítems del checklist usan datos reales extraídos por la API.\n")
 
     resultados = {}
 
-    # Item 2: cédula
-    cedula = por_tipo(extracciones, "cedula")[0]["datos"]
-    resultados["cedula"] = validar_cedula(cedula)
+    # Item 1: formulario de inscripción. La firma NUNCA se verifica automáticamente
+    # (Sección 3 del plan) — firma_verificada=None dejará este ítem en REQUIERE_REVISION.
+    formulario = por_tipo(extracciones, "formulario_inscripcion")[0]["datos"]
+    cedula_datos = por_tipo(extracciones, "cedula")[0]["datos"]
+    resultados["formulario"] = validar_formulario(
+        {
+            "nombre": formulario["nombre"],
+            "cedula": formulario["cedula"],
+            "correo": formulario["correo"],
+            "celular": formulario["celular"],
+            "direccion": formulario["direccion"],
+        },
+        {"nombre": cedula_datos["nombre"], "numero": cedula_datos["numero"]},
+        firma_verificada=None,
+    )
 
-    # Item 3: constancia de estudio (todas las encontradas)
-    estudios = [e["datos"] for e in por_tipo(extracciones, "constancia_estudio")]
+    # Item 2: cédula
+    resultados["cedula"] = validar_cedula(cedula_datos)
+
+    # Item 3: constancia de estudio (todas las encontradas, excluyendo cualquier
+    # documento que la propia extracción marcó como mal clasificado)
+    estudios = [e["datos"] for e in por_tipo(extracciones, "constancia_estudio") if not e.get("requiere_reclasificacion")]
     resultados["estudio"] = validar_constancia_estudio(estudios)
 
     # Item 4: constancias laborales — "relacionado" queda PENDIENTE hasta confirmación
@@ -65,12 +80,12 @@ def main():
     experiencias = [{**e, "relacionado": "PENDIENTE"} for e in laborales_crudas]
     resultados["laboral"] = validar_constancias_laborales(experiencias, cfg)
 
-    # Item 5: certificado de alturas — hay DOS en este legajo (SENA sin vencimiento
-    # explícito, y ALISO con vencimiento). Se valida el más favorable (vigente),
-    # que es justamente el caso de uso real: cualquiera de los dos que sea válido basta.
-    alturas_docs = [e["datos"] for e in por_tipo(extracciones, "certificado_alturas")]
-    resultados_alturas = [validar_certificado_alturas(a, cfg) for a in alturas_docs]
-    resultados["alturas"] = next((r for r in resultados_alturas if r.estado == "cumple"), resultados_alturas[0])
+    # Item 5: certificado de alturas — hay DOS documentos que se clasificaron así, pero
+    # UNO fue marcado por la propia extracción como mal clasificado (en realidad es un
+    # curso SENA sin relación con alturas, ver commit "Corregir bug real..."). Solo se
+    # valida el que la extracción confirmó que sí es un certificado_alturas real.
+    alturas_docs = [e["datos"] for e in por_tipo(extracciones, "certificado_alturas") if not e.get("requiere_reclasificacion")]
+    resultados["alturas"] = validar_certificado_alturas(alturas_docs[0], cfg) if alturas_docs else validar_certificado_alturas(None, cfg)
 
     # Item 6: evaluación médica con aptitud en alturas
     medica = por_tipo(extracciones, "evaluacion_medica")[0]["datos"]
@@ -81,7 +96,7 @@ def main():
         print(f"[{r.estado.upper():<22}] {nombre}: {r.motivo}")
 
     decision = evaluar_admision(resultados)
-    print("\n--- DECISIÓN FINAL (sin contar ítem 1, aún pendiente) ---")
+    print("\n--- DECISIÓN FINAL (los 6 ítems del checklist) ---")
     print(json.dumps(decision, ensure_ascii=False, indent=2))
 
     print("\n--- VISTA PREVIA DE SCORING (Sección 6) ---")

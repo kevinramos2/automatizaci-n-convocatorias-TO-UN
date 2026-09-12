@@ -67,14 +67,25 @@ _INSTRUCCIONES_POR_TIPO = {
         "Si algún campo no se puede leer con certeza, usa null (no inventes datos)."
     ),
     "certificado_alturas": (
-        "Este es un certificado de curso de trabajo seguro en alturas o de reentrenamiento. Extrae:\n"
+        "Este es un certificado de un CURSO/CAPACITACIÓN de trabajo seguro en alturas o de "
+        "reentrenamiento, emitido por un Centro de Entrenamiento Autorizado (SENA u otro). "
+        "NO es un documento médico — no lo emite un médico ni una IPS/EPS, y no contiene concepto "
+        "clínico. Si el documento SÍ lo emite un médico o una entidad de medicina laboral con concepto "
+        "de aptitud (aunque su título diga 'alturas'), es en realidad tipo 'evaluacion_medica', no este — "
+        "usa la salvaguarda de abajo en ese caso. Extrae:\n"
         '{"aportado": true, "entidad_emisora": "<nombre del centro de entrenamiento>", '
         '"fecha_expedicion": "<AAAA-MM-DD o null>", "fecha_vencimiento": "<AAAA-MM-DD, la fecha de vigencia '
         'indicada explícitamente en el certificado; si el documento no indica vencimiento, usa null>"}\n'
         "Si algún campo no se puede leer con certeza, usa null (no inventes datos)."
     ),
     "evaluacion_medica": (
-        "Esta es una evaluación médica ocupacional. Puede tener varias páginas. Extrae UN solo objeto:\n"
+        "Esta es una evaluación médica ocupacional, emitida por un MÉDICO o una entidad de medicina "
+        "laboral/IPS con datos clínicos del paciente — con concepto de aptitud para trabajo en alturas. "
+        "IMPORTANTE: aunque el título del documento diga literalmente 'certificado de alturas' o "
+        "similar, SIGUE SIENDO evaluacion_medica (no certificado_alturas) si quien lo emite es personal "
+        "médico/IPS y da un concepto de salud — la diferencia no es el título, es quién lo emite y su "
+        "contenido (concepto médico vs. constancia de haber tomado un curso). Puede tener varias páginas. "
+        "Extrae UN solo objeto:\n"
         '{"aportado": true, "entidad_emisora": "<entidad o médico que expide>", '
         '"fecha_expedicion": "<AAAA-MM-DD>", '
         '"concepto_aptitud_alturas": true|false, '
@@ -85,9 +96,47 @@ _INSTRUCCIONES_POR_TIPO = {
         "que NO incluye concepto específico de aptitud en alturas (ese es un documento distinto, ver "
         "Sección 2.2 del plan). Si algún campo no se puede leer con certeza, usa null."
     ),
+    "formulario_inscripcion": (
+        "Este es el formulario de inscripción MANUSCRITO (llenado a mano). Puede tener 1 o 2 páginas: "
+        "la primera con datos personales y la tabla de educación formal; la segunda con la tabla de "
+        "educación relacionada (cursos), la tabla de experiencia laboral y la firma.\n\n"
+        "REGLA MÁS IMPORTANTE: transcribe EXACTAMENTE lo que está escrito a mano, letra por letra. "
+        "NO corrijas, completes ni 'arregles' nada, aunque parezca un error o una inconsistencia del "
+        "aspirante (por ejemplo, si el encabezado dice un cargo pero el texto de 'Requisitos específicos' "
+        "dice otro cargo distinto, transcribe AMBOS tal como aparecen, no elijas uno). "
+        "Si un campo está ilegible o vacío, usa null — nunca inventes ni infieras un valor.\n\n"
+        "Extrae:\n"
+        "{\n"
+        '  "numero_proceso_declarado": "<texto junto a Número del proceso al que se inscribe>",\n'
+        '  "cargo_declarado_encabezado": "<cargo indicado junto al número de proceso, arriba del formulario>",\n'
+        '  "cargo_declarado_requisitos": "<cargo que aparece entre paréntesis en la línea \'Requisitos específicos del cargo (...)\'>",\n'
+        '  "fecha_inscripcion": "<AAAA-MM-DD, de los campos Día/Mes/Año, o null>",\n'
+        '  "nombre": "<nombres y apellidos>", "cedula": "<solo dígitos>", "correo": "<correo>", '
+        '"celular": "<celular>", "telefono_fijo": "<o null>", "direccion": "<dirección>",\n'
+        '  "discapacidad": "SI"|"NO", "tipo_discapacidad": "<o null>",\n'
+        '  "certificado_alturas_fecha_declarada": "<AAAA-MM-DD escrita junto a ese requisito, o null>",\n'
+        '  "evaluacion_medica_fecha_declarada": "<AAAA-MM-DD escrita junto a ese requisito, o null>",\n'
+        '  "educacion_formal": [{"clase_estudio": "<Primaria|Secundaria|Técnico|Tecnólogo|Profesional|'
+        'Especialización|Maestría|Doctorado|Título adicional>", "titulo_obtenido": "<o null>", '
+        '"graduado": true|false|null, "anos_aprobados": "<o null>", "fecha_terminacion": "<AAAA-MM-DD o null>", '
+        '"nombre_establecimiento": "<o null>"}],\n'
+        '  "educacion_relacionada": [{"nombre_curso": "<...>", "nombre_establecimiento": "<...>", '
+        '"fecha_inicio": "<AAAA-MM-DD o null>", "fecha_fin": "<AAAA-MM-DD o null>", "duracion_horas": <numero o null>}],\n'
+        '  "experiencia": [{"numero_fila": <int>, "cargo_desempenado": "<...>", "entidad": "<...>", '
+        '"funcion_principal": "<...>", "fecha_desde": "<AAAA-MM-DD o null>", "fecha_hasta": "<AAAA-MM-DD o null>", '
+        '"total_meses_declarado": <numero o null>}],\n'
+        '  "firma_presente": true|false\n'
+        "}\n"
+        "En educacion_formal, educacion_relacionada y experiencia: incluye SOLO las filas de la tabla que "
+        "tengan al menos un dato escrito a mano; omite por completo las filas en blanco. Las fechas DD/MM/AA "
+        "del formulario tienen año de 2 dígitos: interprétalo como 20AA (ej. 26 -> 2026)."
+    ),
 }
 
 _INSTRUCCIONES_POR_TIPO = {tipo: instr + _VERIFICACION_INSTRUCCION for tipo, instr in _INSTRUCCIONES_POR_TIPO.items()}
+
+_MAX_TOKENS_POR_TIPO = {"formulario_inscripcion": 4096}
+_MAX_TOKENS_DEFAULT = 1024
 
 
 def _extraer_json_objeto(texto: str) -> dict:
@@ -115,7 +164,7 @@ def extraer_documento(pdf_path: str, tipo: str, paginas: list[int], client: anth
 
     response = client.messages.create(
         model=MODEL,
-        max_tokens=1024,
+        max_tokens=_MAX_TOKENS_POR_TIPO.get(tipo, _MAX_TOKENS_DEFAULT),
         messages=[{"role": "user", "content": contenido}],
     )
 

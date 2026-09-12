@@ -5,6 +5,7 @@ ResultadoRegla con estado CUMPLE / NO_CUMPLE / REQUIERE_REVISION + motivo.
 Nunca se fuerza una decisión automática: si un ítem no puede confirmarse
 con los datos disponibles, queda como REQUIERE_REVISION.
 """
+import unicodedata
 from dataclasses import dataclass
 from datetime import timedelta
 
@@ -26,7 +27,16 @@ class ResultadoRegla:
 
 
 def _normalizar_nombre(nombre: str) -> str:
-    return " ".join(nombre.strip().upper().split())
+    """Compara nombres sin importar tildes ni orden de palabras.
+
+    La cédula colombiana imprime "APELLIDOS NOMBRES"; el formulario de
+    inscripción suele diligenciarse como "NOMBRES APELLIDOS" — mismo nombre,
+    orden distinto. Sin esto, una comparación de string exacta marcaría como
+    inconsistencia a casi cualquier aspirante real (encontrado con datos reales).
+    """
+    sin_tildes = unicodedata.normalize("NFKD", nombre).encode("ascii", "ignore").decode("ascii")
+    palabras = sin_tildes.strip().upper().split()
+    return " ".join(sorted(palabras))
 
 
 def validar_formulario(formulario: dict, cedula_escaneada: dict, firma_verificada: bool | None = None) -> ResultadoRegla:
