@@ -10,6 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from pipeline.consistencia import cruzar_experiencia_formulario_vs_constancias
 from pipeline.scoring_hoja_vida import calcular_puntaje_hoja_vida
 from pipeline.validacion_admision import (
     evaluar_admision,
@@ -98,6 +99,13 @@ def main():
     decision = evaluar_admision(resultados)
     print("\n--- DECISIÓN FINAL (los 6 ítems del checklist) ---")
     print(json.dumps(decision, ensure_ascii=False, indent=2))
+
+    print("\n--- CRUCE DE CONSISTENCIA: experiencia del formulario vs. constancias laborales ---")
+    inconsistencias = cruzar_experiencia_formulario_vs_constancias(formulario["experiencia"], laborales_crudas, cfg)
+    if not inconsistencias:
+        print("Sin inconsistencias (dentro de la tolerancia configurada).")
+    for inc in inconsistencias:
+        print(json.dumps(inc, ensure_ascii=False, indent=2))
 
     print("\n--- VISTA PREVIA DE SCORING (Sección 6) ---")
     print("No aplica todavía — el gate de la Sección 6.3 exige que ya existan\n"

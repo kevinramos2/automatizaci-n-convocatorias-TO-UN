@@ -16,6 +16,11 @@
   "puntos_por_mes_experiencia_adicional": 1,
   "tope_puntos_experiencia": 50,
   "tope_puntos_educacion": 50,
+  "cruce_consistencia": {
+    "_comentario": "Tolerancias para el cruce de consistencia formulario vs. soportes (Sección 7, paso 7).",
+    "tolerancia_dias_fechas_experiencia": 15,
+    "umbral_coincidencia_entidad": 0.5
+  },
   "deteccion_paginas_blancas": {
     "_comentario": "Calibrado contra legajo-ejemplo-01.pdf (38 páginas). Señal principal: std de grises, no el ratio de no-blancos (el ratio falla con escaneos oscuros uniformes: 3 páginas de exámenes anexos tenían ~95% de 'tinta' por un artefacto de escaneo gris, pero std 3.3-5.5, y el clasificador de Claude las confirmó como sin contenido real). Los 11 reversos en blanco reales dieron std 2.4-4.3; el contenido real más débil observado dio std 25.1. Reajustar si un legajo futuro se sale de este rango.",
     "dpi_render": 100,
