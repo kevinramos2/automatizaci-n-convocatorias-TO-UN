@@ -86,6 +86,8 @@ def cruzar_experiencia_formulario_vs_constancias(
                     "valor_formulario": val_form,
                     "valor_constancia": val_const,
                     "diferencia_dias": diferencia_dias,
+                    "detalle": f"En '{entidad_form}', la {etiqueta} declarada en el formulario ({val_form}) "
+                               f"difiere {diferencia_dias} días de la constancia laboral ({val_const}).",
                 })
 
     return inconsistencias

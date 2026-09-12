@@ -23,6 +23,7 @@ def test_nombres_de_entidad_con_abreviatura_igual_coinciden():
     assert len(inconsistencias) == 1
     assert inconsistencias[0]["tipo"] == "fecha_no_coincide"
     assert inconsistencias[0]["campo"] == "fecha de fin"
+    assert "detalle" in inconsistencias[0] and inconsistencias[0]["detalle"]
 
 
 def test_caso_real_legajo_ejemplo_detecta_discrepancia_de_fecha_fin():
