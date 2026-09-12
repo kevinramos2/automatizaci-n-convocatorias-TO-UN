@@ -1,0 +1,27 @@
+{
+  "proceso": "TO-02 de 2026",
+  "cargo": "Ayudante de Albañilería",
+  "codigo_cargo": "62102",
+  "ficha_manual_funciones": "MD-TO-62102-01",
+  "proposito_principal": "Realizar mantenimiento y reparación a estructuras físicas de la Sede, de acuerdo con las instrucciones del jefe inmediato y los procesos establecidos.",
+  "funciones_esenciales": [
+    "Preparar materiales a utilizar en el mantenimiento o reparación de la estructura física de la Sede, conforme a las instrucciones del jefe y optimizando los recursos.",
+    "Efectuar traslado de materiales de construcción, de acuerdo con lo establecido en la orden de servicio.",
+    "Realizar limpieza de materiales, herramientas y área de trabajo utilizados en los mantenimientos y reparaciones de la estructura física de la Sede, de acuerdo con los lineamientos establecidos.",
+    "Custodiar materiales y herramientas en la Sección de Mantenimiento, de acuerdo con lo establecido en el almacenamiento.",
+    "Acompañar en el armado y desarme de andamios de carga o estructurales, de acuerdo con las necesidades del servicio.",
+    "Realizar labores de mantenimiento y reubicación de bienes muebles, de acuerdo con las necesidades del servicio."
+  ],
+  "conocimientos_basicos_o_esenciales": [
+    "Proporciones de mezclas de morteros.",
+    "Mampostería y pañetes.",
+    "Materiales para construcción."
+  ],
+  "requisitos_minimos": {
+    "formacion_academica": "Terminación y aprobación de educación básica primaria.",
+    "experiencia_meses": 12,
+    "equivalencias": "No aplican"
+  },
+  "certificado_alturas_requerido": true,
+  "notas_uso": "Este texto es el contexto de referencia para el prompt de clasificación 'relacionado con el cargo' (Sección 6.1 del plan). Un curso o experiencia laboral se marca como relacionado si coincide temáticamente con el propósito principal, las funciones esenciales o los conocimientos básicos aquí listados."
+}

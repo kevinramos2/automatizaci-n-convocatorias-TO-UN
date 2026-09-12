@@ -1,0 +1,25 @@
+{
+  "_comentario": "Parámetros configurables del proceso. No hardcodear estas fechas en el código — todo cálculo de vigencia debe leerlas de aquí. Compartido por TO-01 y TO-02 porque ambos avisos usan el mismo cronograma (Sección 8 de ambos avisos).",
+  "fecha_cierre_inscripcion": "2026-09-18",
+  "hora_cierre_inscripcion": "16:00",
+  "fecha_inicio_inscripcion": "2026-09-07",
+  "ventana_evaluacion_medica_dias": 30,
+  "experiencia_minima_meses": 12,
+  "puntaje_minimo_prueba_practica": 60,
+  "max_certificados_educacion_relacionada": 5,
+  "bandas_puntaje_educacion": [
+    { "horas_min": 200, "horas_max": null, "puntos": 25, "descripcion": "CAP / CAO / cursos >= 200 horas" },
+    { "horas_min": 100, "horas_max": 199, "puntos": 12 },
+    { "horas_min": 50, "horas_max": 99, "puntos": 8 },
+    { "horas_min": 8, "horas_max": 49, "puntos": 1 }
+  ],
+  "puntos_por_mes_experiencia_adicional": 1,
+  "tope_puntos_experiencia": 50,
+  "tope_puntos_educacion": 50,
+  "deteccion_paginas_blancas": {
+    "_comentario": "Umbrales iniciales (sin calibrar contra un legajo real). Ajustar en Fase 1 cuando llegue el PDF de ejemplo de 36 páginas.",
+    "dpi_render": 100,
+    "umbral_blanco_ratio": 0.001,
+    "umbral_ambiguo_ratio": 0.01
+  }
+}

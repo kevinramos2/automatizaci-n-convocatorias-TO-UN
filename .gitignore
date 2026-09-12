@@ -1,0 +1,22 @@
+# Secretos y credenciales
+.env
+*.env
+credentials.json
+service-account*.json
+token.json
+
+# Entornos Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Datos de aspirantes (información personal sensible - Ley 1581/2012)
+data-ejemplo/*.pdf
+legajos/
+TO-26.xlsx
+TO-26.xlsx - Inscripciones.pdf
+
+# Sistema
+.DS_Store
+Thumbs.db

@@ -1,0 +1,10 @@
+anthropic==1.5.0
+google-api-core==2.36.0
+google-api-python-client==2.200.0
+google-auth==2.58.0
+google-auth-httplib2==0.4.2
+google-auth-oauthlib==1.4.1
+gspread==6.2.1
+pymupdf==1.28.2
+pymupdf-layout==1.28.2
+pymupdf4llm==1.28.2

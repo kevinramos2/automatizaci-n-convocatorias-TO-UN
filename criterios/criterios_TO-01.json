@@ -1,0 +1,27 @@
+{
+  "proceso": "TO-01 de 2026",
+  "cargo": "Oficial de Jardinería",
+  "codigo_cargo": "65001",
+  "ficha_manual_funciones": "MD-TO-65001-01",
+  "proposito_principal": "Realizar el mantenimiento de prados, zonas verdes e instalaciones de la Sede, utilizando las técnicas, equipos y materiales necesarios, de acuerdo con las instrucciones del jefe inmediato y la programación establecida.",
+  "funciones_esenciales": [
+    "Preparar materiales a utilizar en el mantenimiento o reparación de la estructura física de la Sede, conforme a las instrucciones del jefe inmediato y optimización de recursos.",
+    "Realizar reparaciones a zonas peatonales de la Sede, de acuerdo con las instrucciones del jefe inmediato.",
+    "Adelantar trabajos relacionados con el manejo de material vegetal y orgánico en la preparación de abonos, con base en los procedimientos e instrucciones establecidos.",
+    "Realizar labores de mantenimiento preventivo, aseo y ajuste de maquinaria y herramientas para jardinería, de acuerdo con los procedimientos establecidos.",
+    "Custodiar las herramientas e insumos requeridos para la labor de jardinería, de acuerdo con las instrucciones del jefe inmediato.",
+    "Realizar labores de mantenimiento y reubicación de bienes muebles, de acuerdo con las necesidades del servicio."
+  ],
+  "conocimientos_basicos_o_esenciales": [
+    "Agroquímicos y abonos.",
+    "Especies vegetales, jardines, arbustos, árboles y pastos.",
+    "Desyerbas y arreglo general de jardines."
+  ],
+  "requisitos_minimos": {
+    "formacion_academica": "Terminación y aprobación de educación básica primaria.",
+    "experiencia_meses": 12,
+    "equivalencias": "No aplican"
+  },
+  "certificado_alturas_requerido": true,
+  "notas_uso": "Este texto es el contexto de referencia para el prompt de clasificación 'relacionado con el cargo' (Sección 6.1 del plan). Un curso o experiencia laboral se marca como relacionado si coincide temáticamente con el propósito principal, las funciones esenciales o los conocimientos básicos aquí listados."
+}
