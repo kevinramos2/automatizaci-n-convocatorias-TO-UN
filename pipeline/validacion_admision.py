@@ -8,7 +8,7 @@ con los datos disponibles, queda como REQUIERE_REVISION.
 from dataclasses import dataclass
 from datetime import timedelta
 
-from pipeline.fechas import meses_entre, parse_fecha
+from pipeline.fechas import fecha_fin_efectiva, meses_entre, parse_fecha
 
 CUMPLE = "cumple"
 NO_CUMPLE = "no_cumple"
@@ -96,7 +96,10 @@ def validar_constancias_laborales(experiencias: list[dict], cfg: dict) -> Result
     pendientes_relacion = [e for e in experiencias if e.get("relacionado") == "PENDIENTE"]
 
     def meses(entradas):
-        return sum(meses_entre(parse_fecha(e["fecha_inicio"]), parse_fecha(e["fecha_fin"])) for e in entradas)
+        return sum(
+            meses_entre(parse_fecha(e["fecha_inicio"]), fecha_fin_efectiva(e["fecha_fin"], cfg["fecha_cierre_inscripcion"]))
+            for e in entradas
+        )
 
     confirmadas = [e for e in experiencias if e.get("relacionado") == "SI" and e.get("formato_valido", True)]
     meses_confirmados = meses(confirmadas)

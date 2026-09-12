@@ -62,6 +62,21 @@ def test_experiencia_adicional_al_minimo_da_un_punto_por_mes():
     assert r["puntaje"] == 2  # 14 - 12 minimo = 2 adicionales
 
 
+def test_experiencia_con_fecha_fin_futura_no_cuenta_mas_alla_del_cierre():
+    # Caso real: contrato a termino fijo con fin posterior al cierre de inscripcion (2026-09-18).
+    # No debe contarse como si ya hubiera ocurrido toda la duracion del contrato.
+    experiencias = [{"fecha_inicio": "2024-10-01", "fecha_fin": "2027-02-02", "relacionado": "SI"}]
+    r = calcular_puntaje_experiencia(experiencias, CFG)
+    # De 2024-10-01 a 2026-09-18 (cierre) son 23 meses completos, no ~28 hasta 2027
+    assert r["meses_relacionados_totales"] == 23
+
+
+def test_experiencia_con_fecha_fin_nula_se_cuenta_hasta_el_cierre():
+    experiencias = [{"fecha_inicio": "2013-01-28", "fecha_fin": None, "relacionado": "SI"}]
+    r = calcular_puntaje_experiencia(experiencias, CFG)
+    assert r["puntaje"] == 50  # sobra de sobra, topado
+
+
 def test_experiencia_topada_en_50_puntos():
     experiencias = [{"fecha_inicio": "2010-01-01", "fecha_fin": "2020-01-01", "relacionado": "SI"}]  # 120 meses
     r = calcular_puntaje_experiencia(experiencias, CFG)

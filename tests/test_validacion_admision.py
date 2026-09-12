@@ -71,6 +71,26 @@ def test_constancia_estudio_valida_cumple():
     assert r.estado == CUMPLE
 
 
+def test_experiencia_con_fecha_fin_nula_se_cuenta_hasta_cierre_inscripcion():
+    # Caso real (legajo de ejemplo): "sigue laborando a la fecha", constancia sin fecha de fin.
+    experiencias = [
+        {"fecha_inicio": "2013-01-28", "fecha_fin": None, "relacionado": "SI", "formato_valido": True},
+    ]
+    r = validar_constancias_laborales(experiencias, CFG)
+    assert r.estado == CUMPLE  # de 2013-01-28 a 2026-09-18 (cierre) son muchos años, sobra
+
+
+def test_experiencia_con_fecha_fin_futura_no_cuenta_mas_alla_del_cierre():
+    # Caso real: contrato a término fijo con fecha de fin posterior al cierre de inscripción.
+    # Debe topar en el cierre (2026-09-18), no contar hasta la fecha futura del contrato.
+    experiencias = [
+        {"fecha_inicio": "2026-08-01", "fecha_fin": "2027-02-02", "relacionado": "SI", "formato_valido": True},
+    ]
+    r = validar_constancias_laborales(experiencias, CFG)
+    # De 2026-08-01 a 2026-09-18 (cierre) es menos de 2 meses completos, muy por debajo del minimo
+    assert r.estado == NO_CUMPLE
+
+
 def test_experiencia_relacionada_confirmada_supera_minimo_cumple():
     experiencias = [
         {"fecha_inicio": "2020-01-01", "fecha_fin": "2021-06-01", "relacionado": "SI", "formato_valido": True},

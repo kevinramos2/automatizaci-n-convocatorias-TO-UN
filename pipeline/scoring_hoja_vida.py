@@ -13,7 +13,7 @@ puntajes se SUMAN con tope en 50 — no se suman las horas primero. Es la
 única lectura consistente con "máximo 50 puntos", ya que la tabla de
 bandas por sí sola solo llega a 25.
 """
-from pipeline.fechas import meses_entre, parse_fecha
+from pipeline.fechas import fecha_fin_efectiva, meses_entre, parse_fecha
 
 APROBADO = "aprobado"
 
@@ -49,7 +49,10 @@ def calcular_puntaje_experiencia(experiencias: list[dict], cfg: dict) -> dict:
     mínimo ya exigido para admisión (Sección 6.2, Nota "adicional al requisito mínimo").
     """
     relacionadas = [e for e in experiencias if e.get("relacionado") == "SI"]
-    meses_totales = sum(meses_entre(parse_fecha(e["fecha_inicio"]), parse_fecha(e["fecha_fin"])) for e in relacionadas)
+    meses_totales = sum(
+        meses_entre(parse_fecha(e["fecha_inicio"]), fecha_fin_efectiva(e["fecha_fin"], cfg["fecha_cierre_inscripcion"]))
+        for e in relacionadas
+    )
 
     meses_adicionales = max(meses_totales - cfg["experiencia_minima_meses"], 0)
     puntos = min(meses_adicionales * cfg["puntos_por_mes_experiencia_adicional"], cfg["tope_puntos_experiencia"])

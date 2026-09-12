@@ -12,7 +12,9 @@ __pycache__/
 *.pyc
 
 # Datos de aspirantes (información personal sensible - Ley 1581/2012)
-data-ejemplo/*.pdf
+# Todo lo que entra o sale de un legajo real (PDF fuente, clasificación, extracción)
+# queda fuera de git, no solo el PDF -- el JSON extraído tiene el mismo nombre/cédula/empleador.
+data-ejemplo/*
 legajos/
 TO-26.xlsx
 TO-26.xlsx - Inscripciones.pdf
