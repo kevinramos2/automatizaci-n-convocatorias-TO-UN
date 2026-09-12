@@ -17,9 +17,9 @@
   "tope_puntos_experiencia": 50,
   "tope_puntos_educacion": 50,
   "deteccion_paginas_blancas": {
-    "_comentario": "Calibrado contra legajo-ejemplo-01.pdf (38 páginas, 11 reversos en blanco): los reversos reales muestran ratio 0.0014-0.0057 por ruido de escaneo (no llegan a 0); el contenido real más débil observado fue 0.028. Reajustar si un legajo futuro se sale de este rango.",
+    "_comentario": "Calibrado contra legajo-ejemplo-01.pdf (38 páginas). Señal principal: std de grises, no el ratio de no-blancos (el ratio falla con escaneos oscuros uniformes: 3 páginas de exámenes anexos tenían ~95% de 'tinta' por un artefacto de escaneo gris, pero std 3.3-5.5, y el clasificador de Claude las confirmó como sin contenido real). Los 11 reversos en blanco reales dieron std 2.4-4.3; el contenido real más débil observado dio std 25.1. Reajustar si un legajo futuro se sale de este rango.",
     "dpi_render": 100,
-    "umbral_blanco_ratio": 0.01,
-    "umbral_ambiguo_ratio": 0.02
+    "umbral_std_blanco": 10,
+    "umbral_std_ambiguo": 20
   }
 }
