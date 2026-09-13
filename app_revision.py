@@ -53,40 +53,97 @@ _CONVOCATORIAS = {
     "TO-01": {"etiqueta": "TO-01 · Oficial de Jardinería", "criterios": "criterios/criterios_TO-01.json"},
 }
 
-_COLOR_BADGE = {
-    "cumple": ("#e8f4ea", "#2e7d46", "#bfe0c8"),
-    "requiere_revision_manual": ("#fdf3d9", "#8a6100", "#f2ddA0"),
-    "no_cumple": ("#fbe7e7", "#a3312f", "#f2c4c3"),
+# Misma paleta del guión de demo (Sección "Fase 5"), en dos variantes.
+_PALETA_CLARA = {
+    "bg": "#faf9f5", "surface": "#ffffff", "surface-2": "#f3f1ea", "border": "#e4e0d4",
+    "ink": "#21242b", "ink-muted": "#5c6270", "ink-faint": "#8b8f9c",
+    "accent": "#1d3557", "accent-tint": "#e9eef5", "accent-tint-border": "#c9d6e8",
+    "good": "#2e7d46", "good-bg": "#e8f4ea", "good-border": "#bfe0c8",
+    "warn": "#8a6100", "warn-bg": "#fdf3d9", "warn-border": "#f2dda0",
+    "bad": "#a3312f", "bad-bg": "#fbe7e7", "bad-border": "#f2c4c3",
 }
+_PALETA_OSCURA = {
+    "bg": "#14161b", "surface": "#1b1e25", "surface-2": "#21242c", "border": "#2e323c",
+    "ink": "#e9eaee", "ink-muted": "#a5aab6", "ink-faint": "#767c8a",
+    "accent": "#7fa0d1", "accent-tint": "#1e2735", "accent-tint-border": "#2c3c54",
+    "good": "#6fbf85", "good-bg": "#1b2c20", "good-border": "#2e4a34",
+    "warn": "#e0b84a", "warn-bg": "#332a12", "warn-border": "#55461d",
+    "bad": "#e08585", "bad-bg": "#362020", "bad-border": "#55302f",
+}
+_ETIQUETA_ESTADO = {"cumple": "CUMPLE", "requiere_revision_manual": "REQUIERE REVISIÓN", "no_cumple": "NO CUMPLE"}
 
 
-def _inyectar_estilos():
+def _inyectar_estilos(oscuro: bool):
+    paleta = _PALETA_OSCURA if oscuro else _PALETA_CLARA
+    variables = "\n".join(f"--to-{clave}: {valor};" for clave, valor in paleta.items())
+
+    # Repinta también el "chrome" propio de Streamlit (fondo, sidebar, inputs)
+    # para que el interruptor cambie la app completa, no solo nuestras tarjetas.
+    chrome_oscuro = f"""
+        [data-testid="stAppViewContainer"], [data-testid="stHeader"], [data-testid="stMain"] {{ background: var(--to-bg) !important; }}
+        [data-testid="stSidebar"] {{ background: var(--to-surface-2) !important; border-right: 1px solid var(--to-border); }}
+        [data-testid="stSidebar"] * {{ color: var(--to-ink) !important; }}
+
+        /* Texto nativo de Streamlit en el área principal — NUNCA un selector
+           amplio tipo "*", porque pisaría los colores propios de nuestros
+           badges/pills (.to-badge, .to-pill, .to-ai-box), que viven dentro
+           del mismo contenedor de markdown. */
+        [data-testid="stMarkdownContainer"] h1,
+        [data-testid="stMarkdownContainer"] h2,
+        [data-testid="stMarkdownContainer"] h3,
+        [data-testid="stMarkdownContainer"] > p,
+        [data-testid="stWidgetLabel"] p,
+        [data-testid="stMetricValue"],
+        [data-testid="stMetricLabel"] {{ color: var(--to-ink) !important; }}
+        [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] * {{ color: var(--to-ink-muted) !important; }}
+
+        [data-testid="stTextInput"] input, [data-testid="stFileUploaderDropzone"], [data-baseweb="select"] > div {{
+            background: var(--to-surface) !important; color: var(--to-ink) !important; border-color: var(--to-border) !important;
+        }}
+        [data-baseweb="popover"], [data-baseweb="menu"] {{ background: var(--to-surface) !important; }}
+        [data-baseweb="popover"] *, [data-baseweb="menu"] * {{ color: var(--to-ink) !important; }}
+        hr, [data-testid="stDivider"] {{ border-color: var(--to-border) !important; }}
+        [data-testid="stExpander"], [data-testid="stContainer"] {{ background: var(--to-surface) !important; border-color: var(--to-border) !important; }}
+        [data-testid="stExpander"] summary, [data-testid="stExpander"] summary * {{
+            background: var(--to-surface) !important; color: var(--to-ink) !important;
+        }}
+    """ if oscuro else ""
+
     st.markdown(
-        """
+        f"""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap');
 
-        html, body, [class*="css"] { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
+        :root {{ {variables} }}
 
-        .to-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 4px; }
-        .to-header-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-        .to-header-label { color: #6b7280; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-        .to-header-name { color: #1f2430; font-size: 26px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
-        .to-header-cedula { font-family: 'IBM Plex Mono', ui-monospace, monospace; color: #5b6472; font-size: 14.5px; }
+        html, body, [class*="css"] {{ font-family: 'IBM Plex Sans', system-ui, sans-serif; }}
+        {chrome_oscuro}
 
-        .to-badge { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 9px 18px; font-size: 13px; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; border: 1px solid; }
-        .to-badge-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+        .to-header {{ display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 4px; }}
+        .to-header-info {{ display: flex; flex-direction: column; gap: 4px; min-width: 0; }}
+        .to-header-label {{ color: var(--to-ink-faint); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }}
+        .to-header-name {{ color: var(--to-ink); font-size: 26px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }}
+        .to-header-cedula {{ font-family: 'IBM Plex Mono', ui-monospace, monospace; color: var(--to-ink-muted); font-size: 14.5px; }}
 
-        .to-checklist-item { display: flex; gap: 14px; background: #fff; border: 1px solid #e7e4db; border-radius: 10px; padding: 14px 18px; margin-bottom: 8px; }
-        .to-checklist-num { font-family: 'IBM Plex Mono', ui-monospace, monospace; color: #9aa0ab; font-size: 12.5px; padding-top: 2px; }
-        .to-checklist-body { flex: 1; min-width: 0; }
-        .to-checklist-title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-        .to-checklist-title { color: #1f2430; font-size: 14.5px; font-weight: 600; }
-        .to-checklist-motivo { color: #5b6472; font-size: 13px; line-height: 1.5; margin-top: 3px; }
-        .to-pill { font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+        .to-badge {{ display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 9px 18px; font-size: 13px; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; border: 1px solid; }}
+        .to-badge-dot {{ width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }}
+        .to-badge-cumple {{ background: var(--to-good-bg); color: var(--to-good); border-color: var(--to-good-border); }}
+        .to-badge-requiere_revision_manual {{ background: var(--to-warn-bg); color: var(--to-warn); border-color: var(--to-warn-border); }}
+        .to-badge-no_cumple {{ background: var(--to-bad-bg); color: var(--to-bad); border-color: var(--to-bad-border); }}
 
-        .to-ai-box { background: #eef2fb; border: 1px solid #cfd9f2; border-radius: 9px; padding: 11px 14px; margin: 8px 0; font-size: 13px; color: #1f2430; }
-        .to-ai-label { color: #3c53a0; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 2px; }
+        .to-checklist-item {{ display: flex; gap: 14px; background: var(--to-surface); border: 1px solid var(--to-border); border-radius: 10px; padding: 14px 18px; margin-bottom: 8px; }}
+        .to-checklist-num {{ font-family: 'IBM Plex Mono', ui-monospace, monospace; color: var(--to-ink-faint); font-size: 12.5px; padding-top: 2px; }}
+        .to-checklist-body {{ flex: 1; min-width: 0; }}
+        .to-checklist-title-row {{ display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }}
+        .to-checklist-title {{ color: var(--to-ink); font-size: 14.5px; font-weight: 600; }}
+        .to-checklist-motivo {{ color: var(--to-ink-muted); font-size: 13px; line-height: 1.5; margin-top: 3px; }}
+        .to-pill {{ font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }}
+        .to-pill-cumple {{ background: var(--to-good-bg); color: var(--to-good); }}
+        .to-pill-requiere_revision_manual {{ background: var(--to-warn-bg); color: var(--to-warn); }}
+        .to-pill-no_cumple {{ background: var(--to-bad-bg); color: var(--to-bad); }}
+
+        .to-ai-box {{ background: var(--to-accent-tint); border: 1px solid var(--to-accent-tint-border); border-radius: 9px; padding: 11px 14px; margin: 8px 0; font-size: 13px; color: var(--to-ink); }}
+        .to-ai-label {{ color: var(--to-accent); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 2px; }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -94,17 +151,14 @@ def _inyectar_estilos():
 
 
 def _badge_html(estado: str, texto: str) -> str:
-    bg, fg, border = _COLOR_BADGE.get(estado, ("#eef0f3", "#374151", "#d8dce3"))
-    return (
-        f'<span class="to-badge" style="background:{bg}; color:{fg}; border-color:{border};">'
-        f'<span class="to-badge-dot"></span>{texto}</span>'
-    )
+    clase = f"to-badge-{estado}" if estado in _ETIQUETA_ESTADO else ""
+    return f'<span class="to-badge {clase}"><span class="to-badge-dot"></span>{texto}</span>'
 
 
 def _pill_html(estado: str) -> str:
-    bg, fg, _ = _COLOR_BADGE.get(estado, ("#eef0f3", "#374151", "#d8dce3"))
-    etiqueta = {"cumple": "CUMPLE", "requiere_revision_manual": "REQUIERE REVISIÓN", "no_cumple": "NO CUMPLE"}.get(estado, estado.upper())
-    return f'<span class="to-pill" style="background:{bg}; color:{fg};">{etiqueta}</span>'
+    clase = f"to-pill-{estado}" if estado in _ETIQUETA_ESTADO else ""
+    etiqueta = _ETIQUETA_ESTADO.get(estado, estado.upper())
+    return f'<span class="to-pill {clase}">{etiqueta}</span>'
 
 
 @st.cache_data
@@ -204,7 +258,9 @@ def _barra_lateral(cfg: dict) -> dict | None:
 
 
 def main():
-    _inyectar_estilos()
+    oscuro = st.sidebar.toggle("Tema oscuro", key="modo_oscuro")
+    _inyectar_estilos(oscuro)
+    st.sidebar.divider()
     cfg = _cargar_cfg()
     resultado = _barra_lateral(cfg)
 
