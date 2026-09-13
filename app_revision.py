@@ -40,7 +40,6 @@ load_dotenv()
 
 st.set_page_config(page_title="Revisión de aspirantes — TO 2026", layout="wide")
 
-_COLOR_ESTADO = {"cumple": "success", "requiere_revision_manual": "warning", "no_cumple": "error"}
 _ETIQUETA_ITEM = {
     "formulario": "1. Formulario de inscripción",
     "cedula": "2. Fotocopia de cédula",
@@ -53,6 +52,59 @@ _CONVOCATORIAS = {
     "TO-02": {"etiqueta": "TO-02 · Ayudante de Albañilería", "criterios": "criterios/criterios_TO-02.json"},
     "TO-01": {"etiqueta": "TO-01 · Oficial de Jardinería", "criterios": "criterios/criterios_TO-01.json"},
 }
+
+_COLOR_BADGE = {
+    "cumple": ("#e8f4ea", "#2e7d46", "#bfe0c8"),
+    "requiere_revision_manual": ("#fdf3d9", "#8a6100", "#f2ddA0"),
+    "no_cumple": ("#fbe7e7", "#a3312f", "#f2c4c3"),
+}
+
+
+def _inyectar_estilos():
+    st.markdown(
+        """
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap');
+
+        html, body, [class*="css"] { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
+
+        .to-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 4px; }
+        .to-header-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .to-header-label { color: #6b7280; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        .to-header-name { color: #1f2430; font-size: 26px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+        .to-header-cedula { font-family: 'IBM Plex Mono', ui-monospace, monospace; color: #5b6472; font-size: 14.5px; }
+
+        .to-badge { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 9px 18px; font-size: 13px; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; border: 1px solid; }
+        .to-badge-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+        .to-checklist-item { display: flex; gap: 14px; background: #fff; border: 1px solid #e7e4db; border-radius: 10px; padding: 14px 18px; margin-bottom: 8px; }
+        .to-checklist-num { font-family: 'IBM Plex Mono', ui-monospace, monospace; color: #9aa0ab; font-size: 12.5px; padding-top: 2px; }
+        .to-checklist-body { flex: 1; min-width: 0; }
+        .to-checklist-title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        .to-checklist-title { color: #1f2430; font-size: 14.5px; font-weight: 600; }
+        .to-checklist-motivo { color: #5b6472; font-size: 13px; line-height: 1.5; margin-top: 3px; }
+        .to-pill { font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+
+        .to-ai-box { background: #eef2fb; border: 1px solid #cfd9f2; border-radius: 9px; padding: 11px 14px; margin: 8px 0; font-size: 13px; color: #1f2430; }
+        .to-ai-label { color: #3c53a0; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 2px; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _badge_html(estado: str, texto: str) -> str:
+    bg, fg, border = _COLOR_BADGE.get(estado, ("#eef0f3", "#374151", "#d8dce3"))
+    return (
+        f'<span class="to-badge" style="background:{bg}; color:{fg}; border-color:{border};">'
+        f'<span class="to-badge-dot"></span>{texto}</span>'
+    )
+
+
+def _pill_html(estado: str) -> str:
+    bg, fg, _ = _COLOR_BADGE.get(estado, ("#eef0f3", "#374151", "#d8dce3"))
+    etiqueta = {"cumple": "CUMPLE", "requiere_revision_manual": "REQUIERE REVISIÓN", "no_cumple": "NO CUMPLE"}.get(estado, estado.upper())
+    return f'<span class="to-pill" style="background:{bg}; color:{fg};">{etiqueta}</span>'
 
 
 @st.cache_data
@@ -79,10 +131,6 @@ def _normalizar_documentos(documentos_extraidos: list[dict]) -> list[dict]:
 def _paginas_de(documentos: list[dict], tipo: str) -> list[int]:
     coincidencias = [d["paginas"] for d in documentos if d["tipo"] == tipo]
     return coincidencias[0] if coincidencias else []
-
-
-def _badge(estado: str, texto: str):
-    getattr(st, _COLOR_ESTADO.get(estado, "info"))(texto)
 
 
 def _procesar_y_cachear(archivo_subido, criterios: dict, cfg: dict) -> dict:
@@ -156,6 +204,7 @@ def _barra_lateral(cfg: dict) -> dict | None:
 
 
 def main():
+    _inyectar_estilos()
     cfg = _cargar_cfg()
     resultado = _barra_lateral(cfg)
 
@@ -174,10 +223,22 @@ def main():
     medica = resultado["medica"]
 
     st.title("Panel de revisión — Proceso de selección TO 2026")
-    col_a, col_b, col_c = st.columns(3)
-    col_a.metric("Aspirante", formulario.get("nombre", "—"))
-    col_b.metric("Cédula", cedula.get("numero", "—"))
-    col_c.metric("Estado sugerido", resultado["decision"]["estado_sugerido"])
+
+    estado_decision = resultado["decision"]["estado_sugerido"]
+    estado_clave = {"ADMITIDO": "cumple", "NO ADMITIDO": "no_cumple"}.get(estado_decision, "requiere_revision_manual")
+    st.markdown(
+        f"""
+        <div class="to-header">
+          <div class="to-header-info">
+            <span class="to-header-label">Aspirante</span>
+            <span class="to-header-name">{formulario.get("nombre", "—")}</span>
+            <span class="to-header-cedula">C.C. {cedula.get("numero", "—")}</span>
+          </div>
+          {_badge_html(estado_clave, estado_decision)}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     if resultado["inconsistencias"]:
         with st.expander(f"{len(resultado['inconsistencias'])} inconsistencia(s) detectada(s) automáticamente", expanded=True):
@@ -186,8 +247,23 @@ def main():
 
     st.divider()
     st.subheader("Checklist de admisión")
-    for clave, r in resultado["resultados_validacion"].items():
-        _badge(r.estado, f"**{_ETIQUETA_ITEM.get(clave, clave)}** — {r.estado.upper()}: {r.motivo}")
+    for i, (clave, r) in enumerate(resultado["resultados_validacion"].items(), start=1):
+        etiqueta = _ETIQUETA_ITEM.get(clave, clave).split(". ", 1)[-1]
+        st.markdown(
+            f"""
+            <div class="to-checklist-item">
+              <span class="to-checklist-num">{i:02d}</span>
+              <div class="to-checklist-body">
+                <div class="to-checklist-title-row">
+                  <span class="to-checklist-title">{etiqueta}</span>
+                  {_pill_html(r.estado)}
+                </div>
+                <div class="to-checklist-motivo">{r.motivo}</div>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     st.divider()
     st.subheader("Confirmar firma del formulario")
@@ -224,7 +300,11 @@ def main():
                 st.caption(f"{exp.get('fecha_inicio', '?')} → {exp.get('fecha_fin') or 'a la fecha'}")
                 sugerido = exp.get("relacionado_sugerido")
                 if sugerido:
-                    st.info(f"Sugerencia de la IA: **{sugerido}** — {exp.get('justificacion_relacionado', '')}")
+                    st.markdown(
+                        f'<div class="to-ai-box"><span class="to-ai-label">Sugerencia de la IA</span>'
+                        f'<strong>{sugerido}</strong> — <em>{exp.get("justificacion_relacionado", "")}</em></div>',
+                        unsafe_allow_html=True,
+                    )
                 opciones = ["PENDIENTE", "SI", "NO"]
                 indice_defecto = opciones.index(sugerido) if sugerido in opciones else 0
                 eleccion = st.radio("¿Relacionada con el cargo?", opciones, index=indice_defecto, horizontal=True, key=f"laboral_rel_{i}")
@@ -242,7 +322,11 @@ def main():
             st.markdown(f"**Curso:** {e.get('nombre_curso', '—')} — *{e.get('institucion', '—')}*")
             sugerido = e.get("relacionado_sugerido")
             if sugerido:
-                st.info(f"Sugerencia de la IA: **{sugerido}** — {e.get('justificacion_relacionado', '')}")
+                st.markdown(
+                    f'<div class="to-ai-box"><span class="to-ai-label">Sugerencia de la IA</span>'
+                    f'<strong>{sugerido}</strong> — <em>{e.get("justificacion_relacionado", "")}</em></div>',
+                    unsafe_allow_html=True,
+                )
             opciones = ["PENDIENTE", "SI", "NO"]
             indice_defecto = opciones.index(sugerido) if sugerido in opciones else 0
             eleccion = st.radio("¿Relacionado con el cargo?", opciones, index=indice_defecto, horizontal=True, key=f"estudio_rel_{i}")
@@ -268,12 +352,10 @@ def main():
     decision_actualizada = evaluar_admision(resultados_actualizados)
 
     st.subheader("Decisión con tu revisión")
-    _badge(
-        "cumple" if decision_actualizada["estado_sugerido"] == "ADMITIDO"
-        else "no_cumple" if decision_actualizada["estado_sugerido"] == "NO ADMITIDO"
-        else "requiere_revision_manual",
-        f"**{decision_actualizada['estado_sugerido']}**" + (f" — {decision_actualizada['causal_sugerida']}" if decision_actualizada.get("causal_sugerida") else ""),
-    )
+    estado_final = decision_actualizada["estado_sugerido"]
+    clave_final = {"ADMITIDO": "cumple", "NO ADMITIDO": "no_cumple"}.get(estado_final, "requiere_revision_manual")
+    texto_final = estado_final + (f" — {decision_actualizada['causal_sugerida']}" if decision_actualizada.get("causal_sugerida") else "")
+    st.markdown(_badge_html(clave_final, texto_final), unsafe_allow_html=True)
 
     st.divider()
     st.subheader("Guardar revisión")
