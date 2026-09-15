@@ -147,12 +147,12 @@ def _extraer_json_objeto(texto: str) -> dict:
     return json.loads(texto[inicio:fin + 1])
 
 
-def extraer_documento(pdf_path: str, tipo: str, paginas: list[int], client: anthropic.Anthropic | None = None, dpi: int = 150) -> dict:
+def extraer_documento(pdf_path: str, tipo: str, paginas: list[int], client: anthropic.Anthropic | None = None, dpi: int = 150, rotacion: int = 0) -> dict:
     if tipo not in _INSTRUCCIONES_POR_TIPO:
         raise ValueError(f"No hay prompt de extracción definido para el tipo '{tipo}'")
 
     client = client or anthropic.Anthropic()
-    imagenes = paginas_a_imagenes_base64(pdf_path, paginas, dpi=dpi)
+    imagenes = paginas_a_imagenes_base64(pdf_path, paginas, dpi=dpi, rotacion=rotacion)
 
     contenido = [{"type": "text", "text": _INSTRUCCIONES_POR_TIPO[tipo]}]
     for img in imagenes:

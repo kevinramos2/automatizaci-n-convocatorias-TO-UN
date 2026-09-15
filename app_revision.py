@@ -18,7 +18,7 @@ import anthropic
 import streamlit as st
 from dotenv import load_dotenv
 
-from pipeline.cache_expedientes import cargar_resultado, existe_en_cache, guardar_pdf, guardar_resultado, hash_archivo, ruta_pdf
+from pipeline.cache_expedientes import cargar_resultado, existe_en_cache, guardar_pdf, guardar_resultado, hash_archivo, listar_cache, ruta_pdf
 from pipeline.consistencia import cruzar_experiencia_formulario_vs_constancias
 from pipeline.esquema_sheets import AUDITORIA, MAESTRO
 from pipeline.mapeo_maestro import construir_fila_maestro
@@ -162,8 +162,8 @@ def _pill_html(estado: str) -> str:
 
 
 @st.cache_data
-def _imagen_pagina(pdf_path: str, pagina: int) -> bytes:
-    return base64.standard_b64decode(pagina_a_imagen_base64(pdf_path, pagina, dpi=150))
+def _imagen_pagina(pdf_path: str, pagina: int, rotacion: int = 0) -> bytes:
+    return base64.standard_b64decode(pagina_a_imagen_base64(pdf_path, pagina, dpi=150, rotacion=rotacion))
 
 
 @st.cache_data
@@ -210,28 +210,46 @@ def _procesar_y_cachear(archivo_subido, criterios: dict, cfg: dict) -> dict:
     return resultado
 
 
-def _barra_lateral(cfg: dict) -> dict | None:
-    st.sidebar.title("Proceso de selección TO 2026")
-    convocatoria_id = st.sidebar.selectbox(
-        "Convocatoria", options=list(_CONVOCATORIAS), format_func=lambda k: _CONVOCATORIAS[k]["etiqueta"],
-    )
-    criterios = json.load(open(RAIZ / _CONVOCATORIAS[convocatoria_id]["criterios"], encoding="utf-8"))
+_EJEMPLO_ID = "ejemplo-01"
 
-    st.sidebar.divider()
-    fuente = st.sidebar.radio("Expediente a revisar", ["Subir un expediente nuevo", "Expediente de ejemplo (ya procesado, gratis)"])
 
-    if fuente == "Expediente de ejemplo (ya procesado, gratis)":
-        from pipeline.cargar_expediente_guardado import cargar_resultado_desde_json
-        extraccion_path = RAIZ / "data-ejemplo" / "extraccion-expediente-01.json"
-        if not extraccion_path.exists():
-            st.sidebar.warning("No hay expediente de ejemplo guardado en este equipo.")
-            return None
-        resultado = cargar_resultado_desde_json(str(extraccion_path), cfg, str(RAIZ / "data-ejemplo" / "relacionado-expediente-01.json"))
-        extracciones_crudas = json.load(open(extraccion_path, encoding="utf-8"))
-        resultado["pdf_path"] = str(RAIZ / "data-ejemplo" / "expediente-ejemplo-01.pdf")
-        resultado["documentos"] = [{"tipo": e["tipo"], "paginas": e["paginas"], "datos": e["datos"]} for e in extracciones_crudas if not e.get("requiere_reclasificacion")]
-        return resultado
+def _cargar_ejemplo_original(cfg: dict) -> dict:
+    from pipeline.cargar_expediente_guardado import cargar_resultado_desde_json
+    extraccion_path = RAIZ / "data-ejemplo" / "extraccion-expediente-01.json"
+    resultado = cargar_resultado_desde_json(str(extraccion_path), cfg, str(RAIZ / "data-ejemplo" / "relacionado-expediente-01.json"))
+    extracciones_crudas = json.load(open(extraccion_path, encoding="utf-8"))
+    resultado["pdf_path"] = str(RAIZ / "data-ejemplo" / "expediente-ejemplo-01.pdf")
+    resultado["documentos"] = [{"tipo": e["tipo"], "paginas": e["paginas"], "datos": e["datos"]} for e in extracciones_crudas if not e.get("requiere_reclasificacion")]
+    resultado["_hash"] = _EJEMPLO_ID
+    return resultado
 
+
+def _cargar_desde_cache(hash_: str) -> dict:
+    resultado = cargar_resultado(hash_)
+    resultado["_hash"] = hash_
+    resultado["pdf_path"] = str(ruta_pdf(hash_))
+    resultado["documentos"] = _normalizar_documentos(resultado.pop("documentos_extraidos", []))
+    return resultado
+
+
+def _elegir_expediente_procesado(cfg: dict) -> dict | None:
+    opciones = [{"hash": _EJEMPLO_ID, "nombre": "Ejemplo original (demo inicial)", "cedula": "—", "convocatoria": "—"}]
+    opciones += listar_cache()
+
+    etiquetas = {}
+    for o in opciones:
+        partes = [o["nombre"], f"C.C. {o['cedula']}"]
+        if o["convocatoria"] != "—":
+            partes.append(o["convocatoria"])
+        etiquetas[o["hash"]] = " — ".join(partes)
+
+    hash_elegido = st.sidebar.selectbox("Aspirante", options=list(etiquetas), format_func=lambda h: etiquetas[h])
+    if hash_elegido == _EJEMPLO_ID:
+        return _cargar_ejemplo_original(cfg)
+    return _cargar_desde_cache(hash_elegido)
+
+
+def _subir_expediente_nuevo(criterios: dict, cfg: dict) -> dict | None:
     archivo_subido = st.sidebar.file_uploader("PDF del expediente del aspirante", type="pdf")
     if archivo_subido is None:
         st.sidebar.info("Adjunta un PDF para procesarlo.")
@@ -257,6 +275,21 @@ def _barra_lateral(cfg: dict) -> dict | None:
     return st.session_state.get("resultado_expediente")
 
 
+def _barra_lateral(cfg: dict) -> dict | None:
+    st.sidebar.title("Proceso de selección TO 2026")
+    fuente = st.sidebar.radio("Expediente a revisar", ["Elegir un expediente ya procesado", "Subir un expediente nuevo"])
+    st.sidebar.divider()
+
+    if fuente == "Elegir un expediente ya procesado":
+        return _elegir_expediente_procesado(cfg)
+
+    convocatoria_id = st.sidebar.selectbox(
+        "Convocatoria", options=list(_CONVOCATORIAS), format_func=lambda k: _CONVOCATORIAS[k]["etiqueta"],
+    )
+    criterios = json.load(open(RAIZ / _CONVOCATORIAS[convocatoria_id]["criterios"], encoding="utf-8"))
+    return _subir_expediente_nuevo(criterios, cfg)
+
+
 def main():
     oscuro = st.sidebar.toggle("Tema oscuro", key="modo_oscuro")
     _inyectar_estilos(oscuro)
@@ -269,7 +302,9 @@ def main():
         st.info("Elige la convocatoria y un expediente en la barra lateral para comenzar.")
         return
 
+    hash_ = resultado["_hash"]
     pdf_path = resultado["pdf_path"]
+    rotacion = resultado.get("rotacion", 0)
     documentos = resultado["documentos"]
     formulario = resultado["formulario"]
     cedula = resultado["cedula"]
@@ -330,15 +365,15 @@ def main():
     with col_firma_1:
         st.caption("Formulario (última página, donde firma)")
         if paginas_formulario:
-            st.image(_imagen_pagina(pdf_path, paginas_formulario[-1]))
+            st.image(_imagen_pagina(pdf_path, paginas_formulario[-1], rotacion))
     with col_firma_2:
         st.caption("Cédula")
         if paginas_cedula:
-            st.image(_imagen_pagina(pdf_path, paginas_cedula[0]))
+            st.image(_imagen_pagina(pdf_path, paginas_cedula[0], rotacion))
 
     firma_verificada = st.radio(
         "¿La firma del formulario coincide con la de la cédula?",
-        options=["Pendiente", "Sí coincide", "No coincide"], horizontal=True, key="firma_verificada",
+        options=["Pendiente", "Sí coincide", "No coincide"], horizontal=True, key=f"firma_verificada_{hash_}",
     )
     firma_valor = {"Pendiente": None, "Sí coincide": True, "No coincide": False}[firma_verificada]
 
@@ -363,11 +398,11 @@ def main():
                     )
                 opciones = ["PENDIENTE", "SI", "NO"]
                 indice_defecto = opciones.index(sugerido) if sugerido in opciones else 0
-                eleccion = st.radio("¿Relacionada con el cargo?", opciones, index=indice_defecto, horizontal=True, key=f"laboral_rel_{i}")
+                eleccion = st.radio("¿Relacionada con el cargo?", opciones, index=indice_defecto, horizontal=True, key=f"laboral_rel_{hash_}_{i}")
                 decisiones_relacionado_laboral.append(eleccion)
             with col_img:
                 if exp.get("paginas"):
-                    st.image(_imagen_pagina(pdf_path, exp["paginas"][0]))
+                    st.image(_imagen_pagina(pdf_path, exp["paginas"][0], rotacion))
 
     decisiones_relacionado_estudio = []
     for i, e in enumerate(estudios):
@@ -385,7 +420,7 @@ def main():
                 )
             opciones = ["PENDIENTE", "SI", "NO"]
             indice_defecto = opciones.index(sugerido) if sugerido in opciones else 0
-            eleccion = st.radio("¿Relacionado con el cargo?", opciones, index=indice_defecto, horizontal=True, key=f"estudio_rel_{i}")
+            eleccion = st.radio("¿Relacionado con el cargo?", opciones, index=indice_defecto, horizontal=True, key=f"estudio_rel_{hash_}_{i}")
             decisiones_relacionado_estudio.append(eleccion)
 
     st.divider()

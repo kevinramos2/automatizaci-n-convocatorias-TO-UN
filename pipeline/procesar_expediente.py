@@ -38,7 +38,7 @@ def _sumar_uso(total: dict, *usos: dict) -> None:
         total["output_tokens"] += uso["output_tokens"]
 
 
-def _extraer_documento_logico(pdf_path: str, documento: dict, client: anthropic.Anthropic) -> dict:
+def _extraer_documento_logico(pdf_path: str, documento: dict, client: anthropic.Anthropic, rotacion: int = 0) -> dict:
     """Extrae un documento lógico; si la extracción detecta que el tipo asignado
 
     por el clasificador está mal, reintenta UNA vez con el tipo sugerido. Si
@@ -52,7 +52,7 @@ def _extraer_documento_logico(pdf_path: str, documento: dict, client: anthropic.
         return {"tipo_final": tipo_original, "paginas": paginas, "datos": None,
                 "reclasificado_automaticamente": False, "requiere_revision_tipo": False, "uso": uso}
 
-    r1 = extraer_documento(pdf_path, tipo_original, paginas, client=client)
+    r1 = extraer_documento(pdf_path, tipo_original, paginas, client=client, rotacion=rotacion)
     _sumar_uso(uso, r1["uso"])
 
     if not r1["requiere_reclasificacion"]:
@@ -61,7 +61,7 @@ def _extraer_documento_logico(pdf_path: str, documento: dict, client: anthropic.
 
     tipo_sugerido = r1["datos"].get("tipo_real_sugerido")
     if tipo_sugerido in TIPOS_EXTRAIBLES and tipo_sugerido != tipo_original:
-        r2 = extraer_documento(pdf_path, tipo_sugerido, paginas, client=client)
+        r2 = extraer_documento(pdf_path, tipo_sugerido, paginas, client=client, rotacion=rotacion)
         _sumar_uso(uso, r2["uso"])
         if not r2["requiere_reclasificacion"]:
             return {"tipo_final": tipo_sugerido, "paginas": paginas, "datos": r2["datos"],
@@ -100,7 +100,13 @@ def _items_para_relacionado(estudios: list[dict], laborales: list[dict]) -> list
     return items
 
 
-def procesar_expediente(pdf_path: str, criterios: dict, cfg: dict, client: anthropic.Anthropic | None = None) -> dict:
+def procesar_expediente(pdf_path: str, criterios: dict, cfg: dict, client: anthropic.Anthropic | None = None, rotacion: int = 0) -> dict:
+    """`rotacion` (0/90/180/270): corrige expedientes escaneados girados. Se aplica
+
+    solo al RENDERIZADO de imágenes enviadas a Claude (clasificación y extracción);
+    la detección de páginas en blanco es insensible a rotación (mide varianza de
+    píxeles, no orientación), así que no la necesita.
+    """
     client = client or anthropic.Anthropic()
     uso_total = _uso_vacio()
 
@@ -109,7 +115,7 @@ def procesar_expediente(pdf_path: str, criterios: dict, cfg: dict, client: anthr
     paginas_blancas = [r["pagina"] for r in analisis_paginas if r["clasificacion"] == "blank"]
     paginas_a_clasificar = [r["pagina"] for r in analisis_paginas if r["clasificacion"] != "blank"]
 
-    resultado_clasificacion = clasificar_paginas(pdf_path, paginas_a_clasificar, client=client)
+    resultado_clasificacion = clasificar_paginas(pdf_path, paginas_a_clasificar, client=client, rotacion=rotacion)
     _sumar_uso(uso_total, resultado_clasificacion["uso"])
     clasificacion = resultado_clasificacion["resultados"]
 
@@ -119,7 +125,7 @@ def procesar_expediente(pdf_path: str, criterios: dict, cfg: dict, client: anthr
     # 4: extracción por documento (Sonnet), con reintento de reclasificación
     documentos_extraidos = []
     for doc in documentos_logicos:
-        resultado = _extraer_documento_logico(pdf_path, doc, client)
+        resultado = _extraer_documento_logico(pdf_path, doc, client, rotacion=rotacion)
         _sumar_uso(uso_total, resultado["uso"])
         documentos_extraidos.append(resultado)
 

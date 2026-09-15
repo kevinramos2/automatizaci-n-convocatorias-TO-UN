@@ -84,8 +84,9 @@ def _clasificar_lote(
     client: anthropic.Anthropic,
     dpi: int,
     contexto_pagina_anterior: dict | None,
+    rotacion: int = 0,
 ) -> dict:
-    imagenes = paginas_a_imagenes_base64(pdf_path, numeros_pagina, dpi=dpi)
+    imagenes = paginas_a_imagenes_base64(pdf_path, numeros_pagina, dpi=dpi, rotacion=rotacion)
 
     response = client.messages.create(
         model=MODEL,
@@ -109,12 +110,15 @@ def clasificar_paginas(
     client: anthropic.Anthropic | None = None,
     tamano_lote: int = 8,
     dpi: int = 100,
+    rotacion: int = 0,
 ) -> dict:
     """Clasifica en lotes de `tamano_lote` páginas por llamada (evita exceder el límite
     de tamaño de request de la API cuando el expediente tiene muchas páginas con contenido).
 
     Pasa el tipo de la última página del lote anterior como contexto al siguiente lote,
     para que `inicia_documento_nuevo` sea correcto también en los bordes de lote.
+
+    `rotacion` (0/90/180/270): corrige expedientes escaneados girados (ver pdf_utils.py).
     """
     client = client or anthropic.Anthropic()
     resultados = []
@@ -123,7 +127,7 @@ def clasificar_paginas(
 
     for i in range(0, len(numeros_pagina), tamano_lote):
         lote = numeros_pagina[i:i + tamano_lote]
-        resultado_lote = _clasificar_lote(pdf_path, lote, client, dpi, contexto_pagina_anterior)
+        resultado_lote = _clasificar_lote(pdf_path, lote, client, dpi, contexto_pagina_anterior, rotacion)
         resultados.extend(resultado_lote["resultados"])
         uso_total["input_tokens"] += resultado_lote["uso"]["input_tokens"]
         uso_total["output_tokens"] += resultado_lote["uso"]["output_tokens"]

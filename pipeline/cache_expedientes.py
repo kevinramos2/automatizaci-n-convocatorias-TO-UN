@@ -55,3 +55,26 @@ def cargar_resultado(hash_: str) -> dict | None:
         datos = json.load(f)
     datos["resultados_validacion"] = {k: ResultadoRegla(**v) for k, v in datos["resultados_validacion"].items()}
     return datos
+
+
+def listar_cache() -> list[dict]:
+    """Resumen de todos los expedientes ya procesados (para el selector del panel):
+
+    hash, nombre, cédula, convocatoria (si se guardó) y estado sugerido. No carga
+    el detalle completo de cada uno — solo lo necesario para mostrar la lista.
+    """
+    if not CARPETA_CACHE.exists():
+        return []
+    resumen = []
+    for ruta in sorted(CARPETA_CACHE.glob("*_resultado.json")):
+        hash_ = ruta.name.removesuffix("_resultado.json")
+        with open(ruta, encoding="utf-8") as f:
+            datos = json.load(f)
+        resumen.append({
+            "hash": hash_,
+            "nombre": datos.get("formulario", {}).get("nombre", "—"),
+            "cedula": datos.get("cedula", {}).get("numero", "—"),
+            "convocatoria": datos.get("convocatoria", "—"),
+            "estado_sugerido": datos.get("decision", {}).get("estado_sugerido", "—"),
+        })
+    return resumen
