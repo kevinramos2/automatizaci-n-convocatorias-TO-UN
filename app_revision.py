@@ -169,6 +169,18 @@ def _imagen_pagina(pdf_path: str, pagina: int, rotacion: int = 0) -> bytes:
     return base64.standard_b64decode(pagina_a_imagen_base64(pdf_path, pagina, dpi=150, rotacion=rotacion))
 
 
+def _rotacion_de_pagina(resultado: dict, pagina: int) -> int:
+    """La rotación del expediente completo (`resultado["rotacion"]`) corrige el caso
+
+    típico (todo el escaneo viene girado igual). Pero a veces una sola página trae
+    un documento insertado en orientación horizontal (ej. un certificado apaisado
+    entre páginas verticales) y necesita su propia rotación, distinta a la del resto
+    — `rotaciones_paginas` guarda esas excepciones por número de página.
+    """
+    overrides = resultado.get("rotaciones_paginas") or {}
+    return overrides.get(str(pagina), resultado.get("rotacion", 0))
+
+
 @st.cache_data
 def _cargar_cfg():
     return json.load(open(RAIZ / "config" / "parametros.json", encoding="utf-8"))
@@ -318,7 +330,6 @@ def main():
 
     hash_ = resultado["_hash"]
     pdf_path = resultado["pdf_path"]
-    rotacion = resultado.get("rotacion", 0)
     documentos = resultado["documentos"]
     formulario = resultado["formulario"]
     cedula = resultado["cedula"]
@@ -379,11 +390,13 @@ def main():
     with col_firma_1:
         st.caption("Formulario (última página, donde firma)")
         if paginas_formulario:
-            st.image(_imagen_pagina(pdf_path, paginas_formulario[-1], rotacion))
+            p = paginas_formulario[-1]
+            st.image(_imagen_pagina(pdf_path, p, _rotacion_de_pagina(resultado, p)))
     with col_firma_2:
         st.caption("Cédula")
         if paginas_cedula:
-            st.image(_imagen_pagina(pdf_path, paginas_cedula[0], rotacion))
+            p = paginas_cedula[0]
+            st.image(_imagen_pagina(pdf_path, p, _rotacion_de_pagina(resultado, p)))
 
     firma_verificada = st.radio(
         "¿La firma del formulario coincide con la de la cédula?",
@@ -416,7 +429,8 @@ def main():
                 decisiones_relacionado_laboral.append(eleccion)
             with col_img:
                 if exp.get("paginas"):
-                    st.image(_imagen_pagina(pdf_path, exp["paginas"][0], rotacion))
+                    p = exp["paginas"][0]
+                    st.image(_imagen_pagina(pdf_path, p, _rotacion_de_pagina(resultado, p)))
 
     decisiones_relacionado_estudio = []
     for i, e in enumerate(estudios):
@@ -440,7 +454,8 @@ def main():
                 decisiones_relacionado_estudio.append(eleccion)
             with col_img:
                 if e.get("paginas"):
-                    st.image(_imagen_pagina(pdf_path, e["paginas"][0], rotacion))
+                    p = e["paginas"][0]
+                    st.image(_imagen_pagina(pdf_path, p, _rotacion_de_pagina(resultado, p)))
 
     st.divider()
     st.subheader("Confirmar certificado de alturas y evaluación médica")
@@ -462,7 +477,7 @@ def main():
                 alturas_override = st.radio("¿Es válido el certificado de alturas al cierre de inscripción?", _OPCIONES_VALIDEZ, horizontal=True, key=f"alturas_val_{hash_}")
             with col_img:
                 for p in alturas.get("paginas", []):
-                    st.image(_imagen_pagina(pdf_path, p, rotacion))
+                    st.image(_imagen_pagina(pdf_path, p, _rotacion_de_pagina(resultado, p)))
 
     medica_override = "Según el sistema"
     if medica and medica.get("aportado"):
@@ -480,7 +495,7 @@ def main():
                 medica_override = st.radio("¿Es válida la evaluación médica?", _OPCIONES_VALIDEZ, horizontal=True, key=f"medica_val_{hash_}")
             with col_img:
                 for p in medica.get("paginas", []):
-                    st.image(_imagen_pagina(pdf_path, p, rotacion))
+                    st.image(_imagen_pagina(pdf_path, p, _rotacion_de_pagina(resultado, p)))
 
     st.divider()
 
