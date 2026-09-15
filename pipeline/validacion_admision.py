@@ -114,7 +114,12 @@ def validar_constancias_laborales(experiencias: list[dict], cfg: dict) -> Result
     confirmadas = [e for e in experiencias if e.get("relacionado") == "SI" and e.get("formato_valido", True)]
     meses_confirmados = meses(confirmadas)
 
-    if meses_confirmados >= minimo and not pendientes_relacion and not invalidas_formato:
+    # Basta con que las experiencias YA confirmadas como relacionadas alcancen el
+    # mínimo — no hace falta que el revisor resuelva las demás (pendientes o no
+    # relacionadas) para poder marcar CUMPLE. Antes exigíamos que no quedara
+    # ninguna pendiente, lo que dejaba el ítem trabado en REQUIERE_REVISION incluso
+    # cuando un solo certificado ya alcanzaba el mínimo por sí solo.
+    if meses_confirmados >= minimo:
         return ResultadoRegla(CUMPLE, f"{meses_confirmados} meses de experiencia relacionada confirmados (mínimo {minimo})")
 
     meses_potenciales = meses_confirmados + meses(pendientes_relacion)

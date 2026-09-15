@@ -96,5 +96,6 @@ def listar_cache() -> list[dict]:
             "cedula": datos.get("cedula", {}).get("numero", "—"),
             "convocatoria": datos.get("convocatoria", "—"),
             "estado_sugerido": datos.get("decision", {}).get("estado_sugerido", "—"),
+            "estado_confirmado_por_humano": datos.get("estado_confirmado_por_humano"),
         })
     return resumen

@@ -136,6 +136,27 @@ def test_experiencia_pendiente_que_si_alcanzaria_minimo_requiere_revision():
     assert r.estado == REQUIERE_REVISION
 
 
+def test_una_experiencia_confirmada_basta_aunque_otras_queden_no_relacionadas():
+    # Caso real reportado: 3 certificados, solo 1 relacionado y ya alcanza el
+    # mínimo — no debe quedar trabado esperando que se resuelvan los otros.
+    experiencias = [
+        {"fecha_inicio": "2020-01-01", "fecha_fin": "2021-06-01", "relacionado": "SI", "formato_valido": True},
+        {"fecha_inicio": "2019-01-01", "fecha_fin": "2019-03-01", "relacionado": "NO", "formato_valido": True},
+        {"fecha_inicio": "2018-01-01", "fecha_fin": "2018-02-01", "relacionado": "NO", "formato_valido": True},
+    ]
+    r = validar_constancias_laborales(experiencias, CFG)
+    assert r.estado == CUMPLE
+
+
+def test_una_experiencia_confirmada_basta_aunque_otra_siga_pendiente():
+    experiencias = [
+        {"fecha_inicio": "2020-01-01", "fecha_fin": "2021-06-01", "relacionado": "SI", "formato_valido": True},
+        {"fecha_inicio": "2019-01-01", "fecha_fin": "2019-03-01", "relacionado": "PENDIENTE", "formato_valido": True},
+    ]
+    r = validar_constancias_laborales(experiencias, CFG)
+    assert r.estado == CUMPLE
+
+
 def test_certificado_alturas_vigente_cumple():
     r = validar_certificado_alturas({"aportado": True, "fecha_vencimiento": "2026-12-01"}, CFG)
     assert r.estado == CUMPLE

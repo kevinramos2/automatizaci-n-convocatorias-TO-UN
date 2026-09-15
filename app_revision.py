@@ -243,36 +243,6 @@ def _procesar_y_cachear(archivo_subido, criterios: dict, cfg: dict) -> dict:
     return resultado
 
 
-_EJEMPLO_ID = "ejemplo-01"
-
-
-def _resumen_ejemplo_original() -> dict:
-    """Mismo formato que listar_cache(), para que este expediente aparezca en el
-
-    selector como uno más — no como un caso especial aparte.
-    """
-    extracciones = json.load(open(RAIZ / "data-ejemplo" / "extraccion-expediente-01.json", encoding="utf-8"))
-    cedula = next((e["datos"] for e in extracciones if e["tipo"] == "cedula"), {})
-    formulario = next((e["datos"] for e in extracciones if e["tipo"] == "formulario_inscripcion"), {})
-    return {
-        "hash": _EJEMPLO_ID,
-        "nombre": formulario.get("nombre") or cedula.get("nombre", "—"),
-        "cedula": cedula.get("numero", "—"),
-        "convocatoria": "TO-02",
-    }
-
-
-def _cargar_ejemplo_original(cfg: dict) -> dict:
-    from pipeline.cargar_expediente_guardado import cargar_resultado_desde_json
-    extraccion_path = RAIZ / "data-ejemplo" / "extraccion-expediente-01.json"
-    resultado = cargar_resultado_desde_json(str(extraccion_path), cfg, str(RAIZ / "data-ejemplo" / "relacionado-expediente-01.json"))
-    extracciones_crudas = json.load(open(extraccion_path, encoding="utf-8"))
-    resultado["pdf_path"] = str(RAIZ / "data-ejemplo" / "expediente-ejemplo-01.pdf")
-    resultado["documentos"] = [{"tipo": e["tipo"], "paginas": e["paginas"], "datos": e["datos"]} for e in extracciones_crudas if not e.get("requiere_reclasificacion")]
-    resultado["_hash"] = _EJEMPLO_ID
-    return resultado
-
-
 def _cargar_desde_cache(hash_: str) -> dict:
     resultado = cargar_resultado(hash_)
     resultado["_hash"] = hash_
@@ -281,8 +251,22 @@ def _cargar_desde_cache(hash_: str) -> dict:
     return resultado
 
 
+_BUCKETS = {
+    "Pendientes de revisión": lambda e: e.get("estado_confirmado_por_humano") not in ("ADMITIDO", "NO ADMITIDO"),
+    "Admitidos": lambda e: e.get("estado_confirmado_por_humano") == "ADMITIDO",
+    "No admitidos": lambda e: e.get("estado_confirmado_por_humano") == "NO ADMITIDO",
+}
+
+
 def _elegir_expediente_procesado(cfg: dict) -> dict | None:
-    opciones = [_resumen_ejemplo_original()] + listar_cache()
+    todos = listar_cache()
+
+    bucket = st.sidebar.radio("Ver", list(_BUCKETS), key="bucket_aspirantes")
+    opciones = [e for e in todos if _BUCKETS[bucket](e)]
+
+    if not opciones:
+        st.sidebar.info(f"No hay expedientes en «{bucket}» todavía.")
+        return None
 
     etiquetas = {}
     for o in opciones:
@@ -292,8 +276,6 @@ def _elegir_expediente_procesado(cfg: dict) -> dict | None:
         etiquetas[o["hash"]] = " — ".join(partes)
 
     hash_elegido = st.sidebar.selectbox("Aspirante", options=list(etiquetas), format_func=lambda h: etiquetas[h])
-    if hash_elegido == _EJEMPLO_ID:
-        return _cargar_ejemplo_original(cfg)
     return _cargar_desde_cache(hash_elegido)
 
 
@@ -546,8 +528,11 @@ def main():
 
     st.divider()
     st.subheader("Guardar revisión")
+    decision_final = estado_final in ("ADMITIDO", "NO ADMITIDO")
+    if not decision_final:
+        st.caption("Todavía hay ítems pendientes de confirmar arriba (firma, relacionado, alturas, médica) — resuélvelos para poder guardar una decisión final.")
     revisado_por = st.text_input("Tu nombre (queda registrado en la auditoría)")
-    guardar = st.button("Guardar revisión en Google Sheets", type="primary", disabled=not revisado_por)
+    guardar = st.button("Guardar revisión en Google Sheets", type="primary", disabled=not revisado_por or not decision_final)
 
     if guardar:
         try:
@@ -593,6 +578,16 @@ def main():
                     "corregido_por": revisado_por, "fecha_correccion": date.today().isoformat(),
                 })
             agregar_filas(hojas["Auditoría"], AUDITORIA, filas_auditoria)
+
+            # También en la caché local: es lo que usa el selector "Ver" para
+            # separar pendientes de admitidos/no admitidos, sin depender de leer
+            # Sheets. Se guarda aparte de `resultado` (que ya trae claves propias
+            # del panel, como "documentos") para no corromper la caché en disco.
+            resultado_cache = cargar_resultado(hash_)
+            resultado_cache["estado_confirmado_por_humano"] = decision_actualizada["estado_sugerido"]
+            resultado_cache["revisado_por"] = revisado_por
+            resultado_cache["fecha_revision"] = date.today().isoformat()
+            guardar_resultado(hash_, resultado_cache)
 
             st.success(f"Revisión guardada. Estado final: {decision_actualizada['estado_sugerido']}")
             st.link_button("Abrir Google Sheet", spreadsheet.url)
