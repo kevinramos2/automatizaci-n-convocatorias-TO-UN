@@ -26,6 +26,9 @@ from pipeline.pdf_utils import pagina_a_imagen_base64
 from pipeline.procesar_expediente import procesar_expediente
 from pipeline.sheets_client import abrir_spreadsheet, agregar_filas, asegurar_hojas, autenticar, upsert_fila
 from pipeline.validacion_admision import (
+    CUMPLE,
+    NO_CUMPLE,
+    ResultadoRegla,
     evaluar_admision,
     validar_cedula,
     validar_certificado_alturas,
@@ -187,26 +190,15 @@ def _paginas_de(documentos: list[dict], tipo: str) -> list[int]:
     return coincidencias[0] if coincidencias else []
 
 
-def _documentos_de_respaldo(clave: str, estudios: list[dict], alturas: dict | None, medica: dict | None) -> list[tuple[str, list[int]]]:
-    """Para ítems del checklist que no se confirman con un widget propio (a diferencia
+_OPCIONES_VALIDEZ = ["Según el sistema", "Sí, válido", "No es válido"]
 
-    de firma y relacionado): qué páginas mostrar como evidencia cuando el estado no es
-    CUMPLE, para que el revisor pueda mirar el documento sin salir del panel.
-    """
-    if clave == "estudio":
-        resultado = []
-        for e in estudios:
-            etiqueta = e.get("titulo") or e.get("nombre_curso") or "Constancia de estudio"
-            if e.get("institucion"):
-                etiqueta = f"{etiqueta} — {e['institucion']}"
-            if e.get("paginas"):
-                resultado.append((etiqueta, e["paginas"]))
-        return resultado
-    if clave == "alturas" and alturas and alturas.get("paginas"):
-        return [("Certificado de alturas", alturas["paginas"])]
-    if clave == "medica" and medica and medica.get("paginas"):
-        return [("Evaluación médica", medica["paginas"])]
-    return []
+
+def _aplicar_override_manual(automatico: ResultadoRegla, eleccion: str) -> ResultadoRegla:
+    if eleccion == "Sí, válido":
+        return ResultadoRegla(CUMPLE, "Confirmado manualmente por el revisor, viendo el documento.")
+    if eleccion == "No es válido":
+        return ResultadoRegla(NO_CUMPLE, "Marcado manualmente como no válido por el revisor, viendo el documento.")
+    return automatico
 
 
 def _procesar_y_cachear(archivo_subido, criterios: dict, cfg: dict) -> dict:
@@ -377,14 +369,6 @@ def main():
             """,
             unsafe_allow_html=True,
         )
-        if r.estado != "cumple":
-            documentos_respaldo = _documentos_de_respaldo(clave, estudios, alturas, medica)
-            if documentos_respaldo:
-                with st.expander("Ver documento(s) de respaldo", expanded=True):
-                    for sub_etiqueta, paginas in documentos_respaldo:
-                        st.caption(sub_etiqueta)
-                        for p in paginas:
-                            st.image(_imagen_pagina(pdf_path, p, rotacion))
 
     st.divider()
     st.subheader("Confirmar firma del formulario")
@@ -440,18 +424,63 @@ def main():
             decisiones_relacionado_estudio.append(e.get("relacionado", "PENDIENTE"))
             continue
         with st.container(border=True):
-            st.markdown(f"**Curso:** {e.get('nombre_curso', '—')} — *{e.get('institucion', '—')}*")
-            sugerido = e.get("relacionado_sugerido")
-            if sugerido:
+            col_txt, col_img = st.columns([2, 1])
+            with col_txt:
+                st.markdown(f"**Curso:** {e.get('nombre_curso', '—')} — *{e.get('institucion', '—')}*")
+                sugerido = e.get("relacionado_sugerido")
+                if sugerido:
+                    st.markdown(
+                        f'<div class="to-ai-box"><span class="to-ai-label">Sugerencia de la IA</span>'
+                        f'<strong>{sugerido}</strong> — <em>{e.get("justificacion_relacionado", "")}</em></div>',
+                        unsafe_allow_html=True,
+                    )
+                opciones = ["PENDIENTE", "SI", "NO"]
+                indice_defecto = opciones.index(sugerido) if sugerido in opciones else 0
+                eleccion = st.radio("¿Relacionado con el cargo?", opciones, index=indice_defecto, horizontal=True, key=f"estudio_rel_{hash_}_{i}")
+                decisiones_relacionado_estudio.append(eleccion)
+            with col_img:
+                if e.get("paginas"):
+                    st.image(_imagen_pagina(pdf_path, e["paginas"][0], rotacion))
+
+    st.divider()
+    st.subheader("Confirmar certificado de alturas y evaluación médica")
+    st.caption("El sistema calcula esto de las fechas extraídas, y a veces se equivoca leyendo el documento — revisa la imagen antes de confirmar.")
+
+    alturas_override = "Según el sistema"
+    if alturas and alturas.get("aportado"):
+        with st.container(border=True):
+            col_txt, col_img = st.columns([2, 1])
+            with col_txt:
+                st.markdown(f"**Certificado de alturas** — *{alturas.get('entidad_emisora', '—')}*")
+                st.caption(f"Expedición: {alturas.get('fecha_expedicion') or '—'}  ·  Vencimiento: {alturas.get('fecha_vencimiento') or '—'}")
+                resultado_sistema = resultado["resultados_validacion"]["alturas"]
                 st.markdown(
-                    f'<div class="to-ai-box"><span class="to-ai-label">Sugerencia de la IA</span>'
-                    f'<strong>{sugerido}</strong> — <em>{e.get("justificacion_relacionado", "")}</em></div>',
+                    f'<div class="to-ai-box"><span class="to-ai-label">Resultado del sistema</span>'
+                    f'<strong>{_ETIQUETA_ESTADO.get(resultado_sistema.estado, resultado_sistema.estado)}</strong> — <em>{resultado_sistema.motivo}</em></div>',
                     unsafe_allow_html=True,
                 )
-            opciones = ["PENDIENTE", "SI", "NO"]
-            indice_defecto = opciones.index(sugerido) if sugerido in opciones else 0
-            eleccion = st.radio("¿Relacionado con el cargo?", opciones, index=indice_defecto, horizontal=True, key=f"estudio_rel_{hash_}_{i}")
-            decisiones_relacionado_estudio.append(eleccion)
+                alturas_override = st.radio("¿Es válido el certificado de alturas al cierre de inscripción?", _OPCIONES_VALIDEZ, horizontal=True, key=f"alturas_val_{hash_}")
+            with col_img:
+                for p in alturas.get("paginas", []):
+                    st.image(_imagen_pagina(pdf_path, p, rotacion))
+
+    medica_override = "Según el sistema"
+    if medica and medica.get("aportado"):
+        with st.container(border=True):
+            col_txt, col_img = st.columns([2, 1])
+            with col_txt:
+                st.markdown(f"**Evaluación médica** — *{medica.get('entidad_emisora', '—')}*")
+                st.caption(f"Expedición: {medica.get('fecha_expedicion') or '—'}  ·  Concepto de aptitud en alturas: {medica.get('concepto_aptitud_alturas')}")
+                resultado_sistema = resultado["resultados_validacion"]["medica"]
+                st.markdown(
+                    f'<div class="to-ai-box"><span class="to-ai-label">Resultado del sistema</span>'
+                    f'<strong>{_ETIQUETA_ESTADO.get(resultado_sistema.estado, resultado_sistema.estado)}</strong> — <em>{resultado_sistema.motivo}</em></div>',
+                    unsafe_allow_html=True,
+                )
+                medica_override = st.radio("¿Es válida la evaluación médica?", _OPCIONES_VALIDEZ, horizontal=True, key=f"medica_val_{hash_}")
+            with col_img:
+                for p in medica.get("paginas", []):
+                    st.image(_imagen_pagina(pdf_path, p, rotacion))
 
     st.divider()
 
@@ -467,8 +496,8 @@ def main():
         "cedula": validar_cedula(cedula),
         "estudio": validar_constancia_estudio(estudios_confirmados),
         "laboral": validar_constancias_laborales(laborales_confirmadas, cfg),
-        "alturas": validar_certificado_alturas(alturas, cfg),
-        "medica": validar_evaluacion_medica(medica, cfg),
+        "alturas": _aplicar_override_manual(validar_certificado_alturas(alturas, cfg), alturas_override),
+        "medica": _aplicar_override_manual(validar_evaluacion_medica(medica, cfg), medica_override),
     }
     decision_actualizada = evaluar_admision(resultados_actualizados)
 
@@ -506,6 +535,20 @@ def main():
                 "valor_extraido_ia": "pendiente", "valor_corregido_humano": firma_verificada,
                 "corregido_por": revisado_por, "fecha_correccion": date.today().isoformat(),
             }]
+            if alturas and alturas.get("aportado"):
+                filas_auditoria.append({
+                    "id_aspirante": id_aspirante, "campo": "validez_certificado_alturas",
+                    "valor_extraido_ia": resultado["resultados_validacion"]["alturas"].estado,
+                    "valor_corregido_humano": alturas_override,
+                    "corregido_por": revisado_por, "fecha_correccion": date.today().isoformat(),
+                })
+            if medica and medica.get("aportado"):
+                filas_auditoria.append({
+                    "id_aspirante": id_aspirante, "campo": "validez_evaluacion_medica",
+                    "valor_extraido_ia": resultado["resultados_validacion"]["medica"].estado,
+                    "valor_corregido_humano": medica_override,
+                    "corregido_por": revisado_por, "fecha_correccion": date.today().isoformat(),
+                })
             for i, (exp, d) in enumerate(zip(laborales, decisiones_relacionado_laboral)):
                 filas_auditoria.append({
                     "id_aspirante": id_aspirante, "campo": f"relacionado_laboral_{i}_{exp.get('entidad', '')}",
