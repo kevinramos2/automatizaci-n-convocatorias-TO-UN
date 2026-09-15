@@ -135,8 +135,8 @@ _INSTRUCCIONES_POR_TIPO = {
 
 _INSTRUCCIONES_POR_TIPO = {tipo: instr + _VERIFICACION_INSTRUCCION for tipo, instr in _INSTRUCCIONES_POR_TIPO.items()}
 
-_MAX_TOKENS_POR_TIPO = {"formulario_inscripcion": 4096}
-_MAX_TOKENS_DEFAULT = 1024
+_MAX_TOKENS_POR_TIPO = {"formulario_inscripcion": 8192}
+_MAX_TOKENS_DEFAULT = 2048
 
 
 def _extraer_json_objeto(texto: str) -> dict:
@@ -169,7 +169,22 @@ def extraer_documento(pdf_path: str, tipo: str, paginas: list[int], client: anth
     )
 
     texto = next((b.text for b in response.content if b.type == "text"), "")
-    datos = _extraer_json_objeto(texto)
+
+    if response.stop_reason == "max_tokens":
+        limite = _MAX_TOKENS_POR_TIPO.get(tipo, _MAX_TOKENS_DEFAULT)
+        raise ValueError(
+            f"La extracción del tipo '{tipo}' (páginas {paginas}) se cortó por límite de tokens "
+            f"(max_tokens={limite}) — la respuesta llegó incompleta. Sube el límite para este tipo "
+            f"en _MAX_TOKENS_POR_TIPO. Respuesta parcial: {texto[:300]!r}"
+        )
+
+    try:
+        datos = _extraer_json_objeto(texto)
+    except (ValueError, json.JSONDecodeError) as exc:
+        raise ValueError(
+            f"No se pudo interpretar como JSON la respuesta de extracción del tipo '{tipo}' "
+            f"(páginas {paginas}): {exc}. Respuesta cruda: {texto[:500]!r}"
+        ) from exc
 
     return {
         "tipo": tipo,

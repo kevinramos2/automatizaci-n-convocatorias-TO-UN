@@ -28,22 +28,24 @@ class _Uso:
 
 
 class _RespuestaFalsa:
-    def __init__(self, texto_json):
+    def __init__(self, texto_json, stop_reason="end_turn"):
         self.content = [_BloqueTexto(texto_json)]
         self.usage = _Uso()
+        self.stop_reason = stop_reason
 
 
 class _MessagesFalso:
-    def __init__(self, texto_json):
+    def __init__(self, texto_json, stop_reason="end_turn"):
         self._texto_json = texto_json
+        self._stop_reason = stop_reason
 
     def create(self, **kwargs):
-        return _RespuestaFalsa(self._texto_json)
+        return _RespuestaFalsa(self._texto_json, self._stop_reason)
 
 
 class _ClienteFalso:
-    def __init__(self, texto_json):
-        self.messages = _MessagesFalso(texto_json)
+    def __init__(self, texto_json, stop_reason="end_turn"):
+        self.messages = _MessagesFalso(texto_json, stop_reason)
 
 
 def _pdf_de_una_pagina() -> str:
@@ -80,6 +82,17 @@ def test_clasificacion_correcta_no_marca_reclasificacion():
     r = extraer_documento(pdf_path, "certificado_alturas", [1], client=_ClienteFalso(respuesta))
     assert r["requiere_reclasificacion"] is False
     assert r["datos"]["entidad_emisora"] == "ALISO"
+
+
+def test_respuesta_truncada_lanza_error_claro():
+    pdf_path = _pdf_de_una_pagina()
+    json_incompleto = '{"aportado": true, "entidad_emisora": "ALISO", "fecha_expedicion": "2026-05'
+    cliente = _ClienteFalso(json_incompleto, stop_reason="max_tokens")
+    try:
+        extraer_documento(pdf_path, "certificado_alturas", [1], client=cliente)
+        assert False, "debía lanzar ValueError por respuesta truncada"
+    except ValueError as exc:
+        assert "cortó por límite de tokens" in str(exc)
 
 
 if __name__ == "__main__":

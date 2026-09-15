@@ -1,4 +1,3 @@
-import shutil
 import sys
 from pathlib import Path
 
@@ -44,8 +43,13 @@ def test_guardar_y_cargar_reconstruye_resultadoregla():
         assert cargado["decision"]["estado_sugerido"] == "PENDIENTE DE REVISIÓN"
         assert cargado["formulario"]["nombre"] == "Juan Perez"
     finally:
-        if CARPETA_CACHE.exists():
-            shutil.rmtree(CARPETA_CACHE)
+        # Borra SOLO el archivo que creó esta prueba — nunca shutil.rmtree(CARPETA_CACHE)
+        # entera: esa carpeta es compartida con datos reales de expedientes ya
+        # procesados (cuesta dinero de API reprocesarlos), y un rmtree de toda la
+        # carpeta se los llevó por delante dos veces en la práctica.
+        ruta_resultado = CARPETA_CACHE / f"{h}_resultado.json"
+        if ruta_resultado.exists():
+            ruta_resultado.unlink()
 
 
 if __name__ == "__main__":

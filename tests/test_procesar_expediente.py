@@ -32,6 +32,7 @@ class _RespuestaFalsa:
     def __init__(self, texto_json):
         self.content = [_BloqueTexto(texto_json)]
         self.usage = _Uso()
+        self.stop_reason = "end_turn"
 
 
 class _ClienteSecuencial:
