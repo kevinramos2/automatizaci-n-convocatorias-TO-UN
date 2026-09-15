@@ -75,7 +75,13 @@ _INSTRUCCIONES_POR_TIPO = {
         "usa la salvaguarda de abajo en ese caso. Extrae:\n"
         '{"aportado": true, "entidad_emisora": "<nombre del centro de entrenamiento>", '
         '"fecha_expedicion": "<AAAA-MM-DD o null>", "fecha_vencimiento": "<AAAA-MM-DD, la fecha de vigencia '
-        'indicada explícitamente en el certificado; si el documento no indica vencimiento, usa null>"}\n'
+        'PERSONAL de este certificado para este aspirante, indicada explícitamente como tal; si el '
+        'documento no indica esa fecha, usa null>"}\n'
+        "IMPORTANTE sobre fecha_vencimiento: NUNCA la copies de fecha_expedicion — si no hay una fecha de "
+        "vencimiento distinta impresa, usa null en vez de repetir la fecha de expedición. Tampoco uses una "
+        "fecha de acreditación/vencimiento ICONTEC u otra fecha institucional del centro de formación (esa "
+        "es la vigencia de la acreditación del centro para dictar cursos, no la vigencia del certificado "
+        "del aspirante) — usa null si esa es la única fecha adicional que aparece. "
         "Si algún campo no se puede leer con certeza, usa null (no inventes datos)."
     ),
     "evaluacion_medica": (

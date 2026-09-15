@@ -187,6 +187,28 @@ def _paginas_de(documentos: list[dict], tipo: str) -> list[int]:
     return coincidencias[0] if coincidencias else []
 
 
+def _documentos_de_respaldo(clave: str, estudios: list[dict], alturas: dict | None, medica: dict | None) -> list[tuple[str, list[int]]]:
+    """Para ítems del checklist que no se confirman con un widget propio (a diferencia
+
+    de firma y relacionado): qué páginas mostrar como evidencia cuando el estado no es
+    CUMPLE, para que el revisor pueda mirar el documento sin salir del panel.
+    """
+    if clave == "estudio":
+        resultado = []
+        for e in estudios:
+            etiqueta = e.get("titulo") or e.get("nombre_curso") or "Constancia de estudio"
+            if e.get("institucion"):
+                etiqueta = f"{etiqueta} — {e['institucion']}"
+            if e.get("paginas"):
+                resultado.append((etiqueta, e["paginas"]))
+        return resultado
+    if clave == "alturas" and alturas and alturas.get("paginas"):
+        return [("Certificado de alturas", alturas["paginas"])]
+    if clave == "medica" and medica and medica.get("paginas"):
+        return [("Evaluación médica", medica["paginas"])]
+    return []
+
+
 def _procesar_y_cachear(archivo_subido, criterios: dict, cfg: dict) -> dict:
     contenido = archivo_subido.getvalue()
     hash_ = hash_archivo(contenido)
@@ -355,6 +377,14 @@ def main():
             """,
             unsafe_allow_html=True,
         )
+        if r.estado != "cumple":
+            documentos_respaldo = _documentos_de_respaldo(clave, estudios, alturas, medica)
+            if documentos_respaldo:
+                with st.expander("Ver documento(s) de respaldo", expanded=True):
+                    for sub_etiqueta, paginas in documentos_respaldo:
+                        st.caption(sub_etiqueta)
+                        for p in paginas:
+                            st.image(_imagen_pagina(pdf_path, p, rotacion))
 
     st.divider()
     st.subheader("Confirmar firma del formulario")
