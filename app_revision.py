@@ -105,6 +105,13 @@ def _inyectar_estilos(oscuro: bool):
         }}
         [data-baseweb="popover"], [data-baseweb="menu"] {{ background: var(--to-surface) !important; }}
         [data-baseweb="popover"] *, [data-baseweb="menu"] * {{ color: var(--to-ink) !important; }}
+        /* El selectbox de Streamlit dejó BaseWeb por React Aria Components — la caja
+           cerrada (".react-aria-ComboBox") no la alcanza ningún selector de arriba y
+           se queda con el fondo claro por defecto, con texto claro encima (invisible). */
+        [data-testid="stSelectbox"] [role="group"] {{
+            background: var(--to-surface) !important; border-color: var(--to-border) !important;
+        }}
+        [data-testid="stSelectbox"] input {{ background: transparent !important; color: var(--to-ink) !important; }}
         hr, [data-testid="stDivider"] {{ border-color: var(--to-border) !important; }}
         [data-testid="stExpander"], [data-testid="stContainer"] {{ background: var(--to-surface) !important; border-color: var(--to-border) !important; }}
         [data-testid="stExpander"] summary, [data-testid="stExpander"] summary * {{
@@ -239,6 +246,22 @@ def _procesar_y_cachear(archivo_subido, criterios: dict, cfg: dict) -> dict:
 _EJEMPLO_ID = "ejemplo-01"
 
 
+def _resumen_ejemplo_original() -> dict:
+    """Mismo formato que listar_cache(), para que este expediente aparezca en el
+
+    selector como uno más — no como un caso especial aparte.
+    """
+    extracciones = json.load(open(RAIZ / "data-ejemplo" / "extraccion-expediente-01.json", encoding="utf-8"))
+    cedula = next((e["datos"] for e in extracciones if e["tipo"] == "cedula"), {})
+    formulario = next((e["datos"] for e in extracciones if e["tipo"] == "formulario_inscripcion"), {})
+    return {
+        "hash": _EJEMPLO_ID,
+        "nombre": formulario.get("nombre") or cedula.get("nombre", "—"),
+        "cedula": cedula.get("numero", "—"),
+        "convocatoria": "TO-02",
+    }
+
+
 def _cargar_ejemplo_original(cfg: dict) -> dict:
     from pipeline.cargar_expediente_guardado import cargar_resultado_desde_json
     extraccion_path = RAIZ / "data-ejemplo" / "extraccion-expediente-01.json"
@@ -259,8 +282,7 @@ def _cargar_desde_cache(hash_: str) -> dict:
 
 
 def _elegir_expediente_procesado(cfg: dict) -> dict | None:
-    opciones = [{"hash": _EJEMPLO_ID, "nombre": "Ejemplo original (demo inicial)", "cedula": "—", "convocatoria": "—"}]
-    opciones += listar_cache()
+    opciones = [_resumen_ejemplo_original()] + listar_cache()
 
     etiquetas = {}
     for o in opciones:
