@@ -166,6 +166,9 @@ def _inyectar_estilos(oscuro: bool):
         .to-lightbox {{ display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; align-items: center; justify-content: center; cursor: zoom-out; padding: 24px; text-decoration: none; }}
         .to-lightbox:target {{ display: flex; }}
         .to-lightbox img {{ max-width: 95vw; max-height: 95vh; border-radius: 8px; }}
+        .to-lightbox-multi {{ align-items: flex-start; overflow-y: auto; }}
+        .to-lightbox-paginas {{ display: flex; flex-direction: column; gap: 16px; max-width: 95vw; margin: auto; }}
+        .to-lightbox-paginas img {{ max-width: 95vw; max-height: 88vh; border-radius: 8px; display: block; }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -188,22 +191,32 @@ def _imagen_pagina(pdf_path: str, pagina: int, rotacion: int = 0) -> bytes:
     return base64.standard_b64decode(pagina_a_imagen_base64(pdf_path, pagina, dpi=150, rotacion=rotacion))
 
 
-def _imagen_clickeable(pdf_path: str, pagina: int, rotacion: int, etiqueta: str | None = None) -> None:
-    """Muestra la página como imagen clicable en cualquier punto (no solo un
+def _documento_clickeable(pdf_path: str, resultado: dict, paginas: list[int], etiqueta: str | None = None) -> None:
+    """Muestra solo la primera página como miniatura clicable; un clic abre un
 
-    botón de zoom en la esquina) — clic la amplía, clic de nuevo la cierra.
-    Streamlit sanea el HTML de st.markdown y quita los onclick, así que es un
-    lightbox por CSS puro: el clic navega a un ancla (#id) que un :target
-    muestra; el lightbox mismo es un enlace a "#" que lo cierra al clicear.
+    lightbox con TODAS las páginas del documento, una debajo de otra (con
+    scroll si no caben). Antes se apilaban todas las páginas siempre visibles,
+    alargando mucho la pantalla para formularios/constancias de varias hojas.
+    Clic de nuevo en cualquier parte del lightbox lo cierra. Streamlit sanea el
+    HTML de st.markdown y quita los onclick, así que es un lightbox por CSS
+    puro: el clic navega a un ancla (#id) que un :target muestra.
     """
-    b64 = base64.standard_b64encode(_imagen_pagina(pdf_path, pagina, rotacion)).decode("ascii")
-    src = f"data:image/png;base64,{b64}"
-    aid = "lb-" + hashlib.md5(f"{pdf_path}:{pagina}:{rotacion}".encode()).hexdigest()[:10]
-    pie = f'<div class="to-img-pie">{etiqueta}</div>' if etiqueta else ""
+    if not paginas:
+        return
+
+    def _src(p: int) -> str:
+        b64 = base64.standard_b64encode(_imagen_pagina(pdf_path, p, _rotacion_de_pagina(resultado, p))).decode("ascii")
+        return f"data:image/png;base64,{b64}"
+
+    aid = "lb-" + hashlib.md5(f"{pdf_path}:{'-'.join(map(str, paginas))}".encode()).hexdigest()[:10]
+    contador = f" ({len(paginas)} páginas)" if len(paginas) > 1 else ""
+    pie = f'<div class="to-img-pie">{etiqueta or ""}{contador}</div>' if (etiqueta or contador) else ""
+    imagenes = "".join(f'<img src="{_src(p)}">' for p in paginas)
+
     st.markdown(
-        f'<a href="#{aid}"><img class="to-img-click" src="{src}"></a>'
+        f'<a href="#{aid}"><img class="to-img-click" src="{_src(paginas[0])}"></a>'
         f"{pie}"
-        f'<a href="#" class="to-lightbox" id="{aid}"><img src="{src}"></a>',
+        f'<a href="#" class="to-lightbox to-lightbox-multi" id="{aid}"><div class="to-lightbox-paginas">{imagenes}</div></a>',
         unsafe_allow_html=True,
     )
 
@@ -424,14 +437,11 @@ def main():
     paginas_formulario = _paginas_de(documentos, "formulario_inscripcion")
     paginas_cedula = _paginas_de(documentos, "cedula")
     with col_firma_1:
-        st.caption(f"Formulario ({len(paginas_formulario)} página{'s' if len(paginas_formulario) != 1 else ''}) — la firma va en la última")
-        for p in paginas_formulario:
-            _imagen_clickeable(pdf_path, p, _rotacion_de_pagina(resultado, p), etiqueta=f"Página {p}")
+        st.caption(f"Formulario — clic para ver las {len(paginas_formulario)} página(s), incluida la firma")
+        _documento_clickeable(pdf_path, resultado, paginas_formulario)
     with col_firma_2:
         st.caption("Cédula")
-        if paginas_cedula:
-            p = paginas_cedula[0]
-            _imagen_clickeable(pdf_path, p, _rotacion_de_pagina(resultado, p))
+        _documento_clickeable(pdf_path, resultado, paginas_cedula)
 
     firma_verificada = st.radio(
         "¿La firma del formulario coincide con la de la cédula?",
@@ -463,9 +473,7 @@ def main():
                 eleccion = st.radio("¿Relacionada con el cargo?", opciones, index=indice_defecto, horizontal=True, key=f"laboral_rel_{hash_}_{i}")
                 decisiones_relacionado_laboral.append(eleccion)
             with col_img:
-                if exp.get("paginas"):
-                    p = exp["paginas"][0]
-                    _imagen_clickeable(pdf_path, p, _rotacion_de_pagina(resultado, p))
+                _documento_clickeable(pdf_path, resultado, exp.get("paginas", []))
 
     decisiones_relacionado_estudio = []
     for i, e in enumerate(estudios):
@@ -488,9 +496,7 @@ def main():
                 eleccion = st.radio("¿Relacionado con el cargo?", opciones, index=indice_defecto, horizontal=True, key=f"estudio_rel_{hash_}_{i}")
                 decisiones_relacionado_estudio.append(eleccion)
             with col_img:
-                if e.get("paginas"):
-                    p = e["paginas"][0]
-                    _imagen_clickeable(pdf_path, p, _rotacion_de_pagina(resultado, p))
+                _documento_clickeable(pdf_path, resultado, e.get("paginas", []))
 
     estudios_formales = [e for e in estudios if (e.get("nivel") or "").lower() != "curso_capacitacion"]
     estudio_override = "Según el sistema"
@@ -511,8 +517,7 @@ def main():
                 estudio_override = st.radio("¿Se cumple el requisito mínimo de educación?", _OPCIONES_VALIDEZ, horizontal=True, key=f"estudio_val_{hash_}")
             with col_img:
                 for e in estudios_formales:
-                    for p in e.get("paginas", []):
-                        _imagen_clickeable(pdf_path, p, _rotacion_de_pagina(resultado, p))
+                    _documento_clickeable(pdf_path, resultado, e.get("paginas", []), etiqueta=e.get("titulo") or e.get("nivel"))
 
     st.divider()
     st.subheader("Confirmar certificado de alturas y evaluación médica")
@@ -533,8 +538,7 @@ def main():
                 )
                 alturas_override = st.radio("¿Es válido el certificado de alturas al cierre de inscripción?", _OPCIONES_VALIDEZ, horizontal=True, key=f"alturas_val_{hash_}")
             with col_img:
-                for p in alturas.get("paginas", []):
-                    _imagen_clickeable(pdf_path, p, _rotacion_de_pagina(resultado, p))
+                _documento_clickeable(pdf_path, resultado, alturas.get("paginas", []))
 
     medica_override = "Según el sistema"
     if medica and medica.get("aportado"):
@@ -551,8 +555,7 @@ def main():
                 )
                 medica_override = st.radio("¿Es válida la evaluación médica?", _OPCIONES_VALIDEZ, horizontal=True, key=f"medica_val_{hash_}")
             with col_img:
-                for p in medica.get("paginas", []):
-                    _imagen_clickeable(pdf_path, p, _rotacion_de_pagina(resultado, p))
+                _documento_clickeable(pdf_path, resultado, medica.get("paginas", []))
 
     st.divider()
 
