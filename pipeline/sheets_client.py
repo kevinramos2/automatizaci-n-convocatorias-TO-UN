@@ -65,6 +65,9 @@ def upsert_fila(worksheet: gspread.Worksheet, esquema: list[tuple[str, str]], cl
 
     Evita duplicar la fila de un aspirante si su expediente se reprocesa.
     """
+    if not valor_id or not str(valor_id).strip():
+        raise ValueError(f"'{clave_id}' está vacío — no se puede identificar a qué aspirante corresponde esta fila. No se guarda nada.")
+
     col_id = claves(esquema).index(clave_id) + 1
     fila = fila_desde_dict(esquema, datos)
 
@@ -73,6 +76,19 @@ def upsert_fila(worksheet: gspread.Worksheet, esquema: list[tuple[str, str]], cl
     if celda is None:
         worksheet.append_row(fila, value_input_option="USER_ENTERED")
         return "creada"
+
+    # Salvaguarda contra condiciones de carrera: entre el find() de arriba y este
+    # punto, otra sesión (u otra pestaña) pudo haber escrito en la hoja — se
+    # confirma justo antes de sobrescribir que la fila encontrada TODAVÍA
+    # corresponde a este mismo aspirante. Con la red tan inestable que hemos visto
+    # (reintentos de hasta 120s), mejor fallar ruidosamente aquí que arriesgarse a
+    # pisar la fila de otro aspirante en silencio.
+    valor_actual = worksheet.cell(celda.row, col_id).value
+    if valor_actual != str(valor_id):
+        raise RuntimeError(
+            f"La fila {celda.row} ya no corresponde a '{valor_id}' (ahora tiene '{valor_actual}') — "
+            "se detuvo el guardado para no sobrescribir a otro aspirante. Vuelve a intentar."
+        )
 
     ultima_columna = gspread.utils.rowcol_to_a1(celda.row, len(esquema)).rstrip("0123456789")
     worksheet.update(f"A{celda.row}:{ultima_columna}{celda.row}", [fila], value_input_option="USER_ENTERED")

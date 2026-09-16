@@ -536,58 +536,59 @@ def main():
 
     if guardar:
         try:
-            client = autenticar(str(RAIZ / "service-account.json"))
-            spreadsheet = abrir_spreadsheet(client, os.environ["GOOGLE_SHEETS_SPREADSHEET_ID"])
-            hojas = asegurar_hojas(spreadsheet)
+            with st.spinner("Guardando en Google Sheets... si la red está lenta puede tardar; no hagas doble clic ni cambies de aspirante mientras tanto."):
+                client = autenticar(str(RAIZ / "service-account.json"))
+                spreadsheet = abrir_spreadsheet(client, os.environ["GOOGLE_SHEETS_SPREADSHEET_ID"])
+                hojas = asegurar_hojas(spreadsheet)
 
-            inconsistencias = cruzar_experiencia_formulario_vs_constancias(formulario.get("experiencia", []), laborales_confirmadas, cfg)
-            fila_maestro = construir_fila_maestro(
-                formulario, cedula, estudios_confirmados, laborales_confirmadas, alturas, medica,
-                resultados_actualizados, decision_actualizada, [i["detalle"] for i in inconsistencias], cfg,
-            )
-            fila_maestro["estado_confirmado_por_humano"] = decision_actualizada["estado_sugerido"]
-            fila_maestro["revisado_por"] = revisado_por
-            fila_maestro["fecha_revision"] = date.today().isoformat()
+                inconsistencias = cruzar_experiencia_formulario_vs_constancias(formulario.get("experiencia", []), laborales_confirmadas, cfg)
+                fila_maestro = construir_fila_maestro(
+                    formulario, cedula, estudios_confirmados, laborales_confirmadas, alturas, medica,
+                    resultados_actualizados, decision_actualizada, [i["detalle"] for i in inconsistencias], cfg,
+                )
+                fila_maestro["estado_confirmado_por_humano"] = decision_actualizada["estado_sugerido"]
+                fila_maestro["revisado_por"] = revisado_por
+                fila_maestro["fecha_revision"] = date.today().isoformat()
 
-            id_aspirante = cedula.get("numero", "")
-            upsert_fila(hojas["Maestro"], MAESTRO, "id_aspirante", id_aspirante, fila_maestro)
+                id_aspirante = cedula.get("numero", "")
+                upsert_fila(hojas["Maestro"], MAESTRO, "id_aspirante", id_aspirante, fila_maestro)
 
-            filas_auditoria = [{
-                "id_aspirante": id_aspirante, "campo": "firma_verificada",
-                "valor_extraido_ia": "pendiente", "valor_corregido_humano": firma_verificada,
-                "corregido_por": revisado_por, "fecha_correccion": date.today().isoformat(),
-            }]
-            if alturas and alturas.get("aportado"):
-                filas_auditoria.append({
-                    "id_aspirante": id_aspirante, "campo": "validez_certificado_alturas",
-                    "valor_extraido_ia": resultado["resultados_validacion"]["alturas"].estado,
-                    "valor_corregido_humano": alturas_override,
+                filas_auditoria = [{
+                    "id_aspirante": id_aspirante, "campo": "firma_verificada",
+                    "valor_extraido_ia": "pendiente", "valor_corregido_humano": firma_verificada,
                     "corregido_por": revisado_por, "fecha_correccion": date.today().isoformat(),
-                })
-            if medica and medica.get("aportado"):
-                filas_auditoria.append({
-                    "id_aspirante": id_aspirante, "campo": "validez_evaluacion_medica",
-                    "valor_extraido_ia": resultado["resultados_validacion"]["medica"].estado,
-                    "valor_corregido_humano": medica_override,
-                    "corregido_por": revisado_por, "fecha_correccion": date.today().isoformat(),
-                })
-            for i, (exp, d) in enumerate(zip(laborales, decisiones_relacionado_laboral)):
-                filas_auditoria.append({
-                    "id_aspirante": id_aspirante, "campo": f"relacionado_laboral_{i}_{exp.get('entidad', '')}",
-                    "valor_extraido_ia": exp.get("relacionado_sugerido", ""), "valor_corregido_humano": d,
-                    "corregido_por": revisado_por, "fecha_correccion": date.today().isoformat(),
-                })
-            agregar_filas(hojas["Auditoría"], AUDITORIA, filas_auditoria)
+                }]
+                if alturas and alturas.get("aportado"):
+                    filas_auditoria.append({
+                        "id_aspirante": id_aspirante, "campo": "validez_certificado_alturas",
+                        "valor_extraido_ia": resultado["resultados_validacion"]["alturas"].estado,
+                        "valor_corregido_humano": alturas_override,
+                        "corregido_por": revisado_por, "fecha_correccion": date.today().isoformat(),
+                    })
+                if medica and medica.get("aportado"):
+                    filas_auditoria.append({
+                        "id_aspirante": id_aspirante, "campo": "validez_evaluacion_medica",
+                        "valor_extraido_ia": resultado["resultados_validacion"]["medica"].estado,
+                        "valor_corregido_humano": medica_override,
+                        "corregido_por": revisado_por, "fecha_correccion": date.today().isoformat(),
+                    })
+                for i, (exp, d) in enumerate(zip(laborales, decisiones_relacionado_laboral)):
+                    filas_auditoria.append({
+                        "id_aspirante": id_aspirante, "campo": f"relacionado_laboral_{i}_{exp.get('entidad', '')}",
+                        "valor_extraido_ia": exp.get("relacionado_sugerido", ""), "valor_corregido_humano": d,
+                        "corregido_por": revisado_por, "fecha_correccion": date.today().isoformat(),
+                    })
+                agregar_filas(hojas["Auditoría"], AUDITORIA, filas_auditoria)
 
-            # También en la caché local: es lo que usa el selector "Ver" para
-            # separar pendientes de admitidos/no admitidos, sin depender de leer
-            # Sheets. Se guarda aparte de `resultado` (que ya trae claves propias
-            # del panel, como "documentos") para no corromper la caché en disco.
-            resultado_cache = cargar_resultado(hash_)
-            resultado_cache["estado_confirmado_por_humano"] = decision_actualizada["estado_sugerido"]
-            resultado_cache["revisado_por"] = revisado_por
-            resultado_cache["fecha_revision"] = date.today().isoformat()
-            guardar_resultado(hash_, resultado_cache)
+                # También en la caché local: es lo que usa el selector "Ver" para
+                # separar pendientes de admitidos/no admitidos, sin depender de leer
+                # Sheets. Se guarda aparte de `resultado` (que ya trae claves propias
+                # del panel, como "documentos") para no corromper la caché en disco.
+                resultado_cache = cargar_resultado(hash_)
+                resultado_cache["estado_confirmado_por_humano"] = decision_actualizada["estado_sugerido"]
+                resultado_cache["revisado_por"] = revisado_por
+                resultado_cache["fecha_revision"] = date.today().isoformat()
+                guardar_resultado(hash_, resultado_cache)
 
             st.success(f"Revisión guardada. Estado final: {decision_actualizada['estado_sugerido']}")
             st.link_button("Abrir Google Sheet", spreadsheet.url)

@@ -8,8 +8,9 @@ from pipeline.sheets_client import agregar_filas, asegurar_hojas, upsert_fila
 
 
 class _CeldaFalsa:
-    def __init__(self, row):
+    def __init__(self, row, value=None):
         self.row = row
+        self.value = value
 
 
 class _WorksheetFalso:
@@ -46,6 +47,10 @@ class _WorksheetFalso:
             if len(fila) >= in_column and fila[in_column - 1] == texto:
                 return _CeldaFalsa(i)
         return None
+
+    def cell(self, row, col):
+        valor = self.filas[row - 1][col - 1] if len(self.filas) >= row and len(self.filas[row - 1]) >= col else None
+        return _CeldaFalsa(row, value=valor)
 
 
 class _SpreadsheetFalso:
@@ -91,6 +96,36 @@ def test_upsert_actualiza_fila_existente_en_vez_de_duplicar():
     assert len(ws.filas) == 2  # encabezado + 1 sola fila de datos, no 2
     col_nombre = [c for c, _ in MAESTRO].index("nombre_aspirante")
     assert ws.filas[1][col_nombre] == "Juan Actualizado"
+
+
+def test_upsert_rechaza_id_vacio():
+    ws = _WorksheetFalso("Maestro", filas=[[e for _, e in MAESTRO]])
+    try:
+        upsert_fila(ws, MAESTRO, "id_aspirante", "", {"id_aspirante": "", "nombre_aspirante": "Sin cédula"})
+        assert False, "debía lanzar ValueError con id_aspirante vacío"
+    except ValueError:
+        pass
+    assert len(ws.llamadas_append) == 0 and len(ws.llamadas_update) == 0
+
+
+def test_upsert_no_sobrescribe_si_la_fila_cambio_de_dueno():
+    # Simula la condición de carrera: find() ubica la fila 2 para "123", pero para
+    # cuando se va a escribir esa fila ya es de otro aspirante (otra sesión la
+    # cambió entre medias) — debe abortar en vez de pisarla.
+    class _WorksheetConCarrera(_WorksheetFalso):
+        def find(self, texto, in_column=None):
+            return _CeldaFalsa(2)
+
+        def cell(self, row, col):
+            return _CeldaFalsa(row, value="999")
+
+    ws = _WorksheetConCarrera("Maestro", filas=[[e for _, e in MAESTRO], ["", "", "", "999"]])
+    try:
+        upsert_fila(ws, MAESTRO, "id_aspirante", "123", {"id_aspirante": "123", "nombre_aspirante": "Juan"})
+        assert False, "debía lanzar RuntimeError al detectar el cambio de dueño de la fila"
+    except RuntimeError:
+        pass
+    assert len(ws.llamadas_update) == 0  # no se llegó a escribir
 
 
 def test_agregar_filas_hoja_de_solo_insercion():
