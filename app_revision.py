@@ -9,7 +9,6 @@ disco por hash del archivo para no volver a cobrar la API en cada recarga.
 Uso: streamlit run app_revision.py
 """
 import base64
-import hashlib
 import json
 import os
 from datetime import date
@@ -155,20 +154,6 @@ def _inyectar_estilos(oscuro: bool):
 
         .to-ai-box {{ background: var(--to-accent-tint); border: 1px solid var(--to-accent-tint-border); border-radius: 9px; padding: 11px 14px; margin: 8px 0; font-size: 13px; color: var(--to-ink); }}
         .to-ai-label {{ color: var(--to-accent); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 2px; }}
-
-        /* Documentos: clic en cualquier parte de la imagen la amplía — antes había
-           que apuntar al botón de zoom de Streamlit en la esquina, poco intuitivo.
-           Streamlit sanea el HTML de st.markdown y quita los onclick, así que esto
-           es un lightbox 100% CSS (ancla + :target), sin JavaScript. */
-        .to-img-click {{ cursor: zoom-in; border-radius: 8px; border: 1px solid var(--to-border); width: 100%; display: block; margin-bottom: 3px; transition: opacity 0.15s; }}
-        .to-img-click:hover {{ opacity: 0.85; }}
-        .to-img-pie {{ color: var(--to-ink-faint); font-size: 11.5px; margin-bottom: 10px; }}
-        .to-lightbox {{ display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; align-items: center; justify-content: center; cursor: zoom-out; padding: 24px; text-decoration: none; }}
-        .to-lightbox:target {{ display: flex; }}
-        .to-lightbox img {{ max-width: 95vw; max-height: 95vh; border-radius: 8px; }}
-        .to-lightbox-multi {{ align-items: flex-start; overflow-y: auto; }}
-        .to-lightbox-paginas {{ display: flex; flex-direction: column; gap: 16px; max-width: 95vw; margin: auto; }}
-        .to-lightbox-paginas img {{ max-width: 95vw; max-height: 88vh; border-radius: 8px; display: block; }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -192,33 +177,28 @@ def _imagen_pagina(pdf_path: str, pagina: int, rotacion: int = 0) -> bytes:
 
 
 def _documento_clickeable(pdf_path: str, resultado: dict, paginas: list[int], etiqueta: str | None = None) -> None:
-    """Muestra solo la primera página como miniatura clicable; un clic abre un
+    """Muestra solo la primera página; si el documento tiene más, un botón nativo
 
-    lightbox con TODAS las páginas del documento, una debajo de otra (con
-    scroll si no caben). Antes se apilaban todas las páginas siempre visibles,
-    alargando mucho la pantalla para formularios/constancias de varias hojas.
-    Clic de nuevo en cualquier parte del lightbox lo cierra. Streamlit sanea el
-    HTML de st.markdown y quita los onclick, así que es un lightbox por CSS
-    puro: el clic navega a un ancla (#id) que un :target muestra.
+    de Streamlit ("Ver las N páginas") las despliega en un popover. Se probó un
+    lightbox hecho con CSS puro (ancla + :target) con imágenes en base64
+    incrustadas en el HTML, pero con expedientes reales (muchos documentos, cada
+    uno con varias páginas) la página se volvía demasiado pesada y varias
+    imágenes dejaban de renderizarse o de responder al clic — de ahí que esto use
+    los mecanismos propios de Streamlit (st.image, st.popover), más pesados de
+    programar pero mucho más confiables.
     """
     if not paginas:
         return
 
-    def _src(p: int) -> str:
-        b64 = base64.standard_b64encode(_imagen_pagina(pdf_path, p, _rotacion_de_pagina(resultado, p))).decode("ascii")
-        return f"data:image/png;base64,{b64}"
+    primera = paginas[0]
+    st.image(_imagen_pagina(pdf_path, primera, _rotacion_de_pagina(resultado, primera)))
+    if etiqueta:
+        st.caption(etiqueta)
 
-    aid = "lb-" + hashlib.md5(f"{pdf_path}:{'-'.join(map(str, paginas))}".encode()).hexdigest()[:10]
-    contador = f" ({len(paginas)} páginas)" if len(paginas) > 1 else ""
-    pie = f'<div class="to-img-pie">{etiqueta or ""}{contador}</div>' if (etiqueta or contador) else ""
-    imagenes = "".join(f'<img src="{_src(p)}">' for p in paginas)
-
-    st.markdown(
-        f'<a href="#{aid}"><img class="to-img-click" src="{_src(paginas[0])}"></a>'
-        f"{pie}"
-        f'<a href="#" class="to-lightbox to-lightbox-multi" id="{aid}"><div class="to-lightbox-paginas">{imagenes}</div></a>',
-        unsafe_allow_html=True,
-    )
+    if len(paginas) > 1:
+        with st.popover(f"Ver las {len(paginas)} páginas"):
+            for p in paginas:
+                st.image(_imagen_pagina(pdf_path, p, _rotacion_de_pagina(resultado, p)), caption=f"Página {p}")
 
 
 def _rotacion_de_pagina(resultado: dict, pagina: int) -> int:
