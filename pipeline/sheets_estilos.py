@@ -54,11 +54,12 @@ def aplicar_wrap_a_datos(worksheet: gspread.Worksheet, num_columnas: int, num_fi
     gf.format_cell_range(worksheet, rango, gf.CellFormat(wrapStrategy="WRAP", verticalAlignment="TOP"))
 
 
-def aplicar_formato_condicional_estado(worksheet: gspread.Worksheet, esquema: list[tuple[str, str]], clave_columna: str = "estado_sugerido") -> None:
-    """Colorea toda la fila según Estado_sugerido: verde=ADMITIDO, amarillo=PENDIENTE
+def aplicar_formato_condicional_estado(worksheet: gspread.Worksheet, esquema: list[tuple[str, str]], clave_columna: str = "estado_confirmado_por_humano") -> None:
+    """Colorea toda la fila según Estado_confirmado_por_humano: verde=ADMITIDO,
 
-    DE REVISIÓN, rojo=NO ADMITIDO. Compara toda la fila contra la columna de
-    estado con una fórmula, para que el color no quede solo en una celda suelta.
+    amarillo=PENDIENTE DE REVISIÓN, rojo=NO ADMITIDO. Compara toda la fila contra
+    la columna de estado con una fórmula, para que el color no quede solo en una
+    celda suelta.
     """
     claves = [c for c, _ in esquema]
     col_estado = claves.index(clave_columna) + 1

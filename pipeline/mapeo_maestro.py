@@ -93,14 +93,12 @@ def construir_fila_maestro(
         fila["medica_cumplimiento"] = resultado_medica.estado if resultado_medica else ""
         fila["medica_observaciones"] = resultado_medica.motivo if resultado_medica else ""
 
-    # --- ADMITIDO SI/NO y CAUSAL DE NO ADMISIÓN: SIEMPRE en blanco ---
-    # Son las columnas de decisión OFICIAL, publicada — nunca las llena el pipeline.
-    # La sugerencia va en las columnas nuevas de abajo.
-
-    # --- Columnas nuevas del plan ---
-    fila["estado_sugerido"] = decision.get("estado_sugerido", "")
-    fila["causal_sugerida"] = decision.get("causal_sugerida") or ""
-    # estado_confirmado_por_humano, revisado_por, fecha_revision: en blanco (las llena el revisor)
+    # --- ADMITIDO SI/NO, CAUSAL DE NO ADMISIÓN y demás columnas de decisión ---
+    # SIEMPRE en blanco aquí: esta función solo arma los datos ya extraídos del
+    # expediente, nunca decide. Las columnas de decisión oficial (admitido_si_no,
+    # causal_no_admision, estado_confirmado_por_humano, revisado_por,
+    # fecha_revision) las llena el panel directamente al momento en que un humano
+    # confirma la revisión — no existe una versión "sugerida" intermedia.
     # resultado_prueba_practica, resultado_prueba_teorica, puntajes: en blanco (Fase 9, meses después)
 
     return fila

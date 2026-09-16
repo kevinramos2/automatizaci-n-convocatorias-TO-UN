@@ -79,9 +79,12 @@ _MAESTRO_EXISTENTE = [
 ]
 
 # --- Bloque 2: columnas nuevas del plan (Sección 4) --------------------------
+# Nota: no hay columnas de "sugerencia" de la IA — el pipeline nunca escribe una
+# fila en Maestro por sí solo. Solo se escribe cuando un humano confirma la
+# revisión en el panel, y en ese momento se llenan directamente las columnas de
+# decisión oficiales de arriba (admitido_si_no, causal_no_admision), no una
+# versión "sugerida" aparte.
 _MAESTRO_NUEVO = [
-    ("estado_sugerido", "Estado_sugerido"),
-    ("causal_sugerida", "Causal_sugerida"),
     ("estado_confirmado_por_humano", "Estado_confirmado_por_humano"),
     ("revisado_por", "Revisado_por"),
     ("fecha_revision", "Fecha_revisión"),

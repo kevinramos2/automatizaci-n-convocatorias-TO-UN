@@ -92,8 +92,8 @@ def listar_cache() -> list[dict]:
             datos = json.load(f)
         resumen.append({
             "hash": hash_,
-            "nombre": datos.get("formulario", {}).get("nombre", "—"),
-            "cedula": datos.get("cedula", {}).get("numero", "—"),
+            "nombre": datos.get("formulario", {}).get("nombre") or "—",
+            "cedula": datos.get("cedula", {}).get("numero") or "—",
             "convocatoria": datos.get("convocatoria", "—"),
             "estado_sugerido": datos.get("decision", {}).get("estado_sugerido", "—"),
             "estado_confirmado_por_humano": datos.get("estado_confirmado_por_humano"),

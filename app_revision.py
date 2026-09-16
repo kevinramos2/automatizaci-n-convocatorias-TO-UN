@@ -262,7 +262,7 @@ def _elegir_expediente_procesado(cfg: dict) -> dict | None:
     todos = listar_cache()
 
     bucket = st.sidebar.radio("Ver", list(_BUCKETS), key="bucket_aspirantes")
-    opciones = [e for e in todos if _BUCKETS[bucket](e)]
+    opciones = sorted((e for e in todos if _BUCKETS[bucket](e)), key=lambda e: e["nombre"].upper())
 
     if not opciones:
         st.sidebar.info(f"No hay expedientes en «{bucket}» todavía.")
@@ -270,7 +270,7 @@ def _elegir_expediente_procesado(cfg: dict) -> dict | None:
 
     etiquetas = {}
     for o in opciones:
-        partes = [o["nombre"], f"C.C. {o['cedula']}"]
+        partes = [o["nombre"].upper(), f"C.C. {o['cedula']}"]
         if o["convocatoria"] != "—":
             partes.append(o["convocatoria"])
         etiquetas[o["hash"]] = " — ".join(partes)
@@ -351,7 +351,7 @@ def main():
         <div class="to-header">
           <div class="to-header-info">
             <span class="to-header-label">Aspirante</span>
-            <span class="to-header-name">{formulario.get("nombre", "—")}</span>
+            <span class="to-header-name">{(formulario.get("nombre") or "—").upper()}</span>
             <span class="to-header-cedula">C.C. {cedula.get("numero", "—")}</span>
           </div>
           {_badge_html(estado_clave, estado_decision)}
@@ -546,6 +546,11 @@ def main():
                     formulario, cedula, estudios_confirmados, laborales_confirmadas, alturas, medica,
                     resultados_actualizados, decision_actualizada, [i["detalle"] for i in inconsistencias], cfg,
                 )
+                # Se llenan directamente las columnas oficiales de decisión — no hay
+                # una versión "sugerida" aparte: esto se escribe solo cuando un
+                # humano ya confirmó la revisión completa en el panel.
+                fila_maestro["admitido_si_no"] = "SI" if decision_actualizada["estado_sugerido"] == "ADMITIDO" else "NO"
+                fila_maestro["causal_no_admision"] = decision_actualizada.get("causal_sugerida") or ""
                 fila_maestro["estado_confirmado_por_humano"] = decision_actualizada["estado_sugerido"]
                 fila_maestro["revisado_por"] = revisado_por
                 fila_maestro["fecha_revision"] = date.today().isoformat()

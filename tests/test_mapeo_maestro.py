@@ -49,13 +49,14 @@ def test_fila_tiene_la_longitud_del_esquema():
 
 
 def test_admitido_si_no_nunca_se_autocompleta():
-    # Columna de decisión oficial: el pipeline NUNCA la llena, solo sugiere en Estado_sugerido.
+    # Columnas de decisión oficial: construir_fila_maestro() NUNCA las llena — las
+    # llena el panel directamente, solo cuando un humano confirma la revisión.
     resultados, decision = _resultados_y_decision()
     fila = construir_fila_maestro(FORMULARIO, CEDULA, ESTUDIOS, LABORALES, ALTURAS, MEDICA, resultados, decision, [], CFG)
     assert fila.get("admitido_si_no") in (None, "")
     assert fila.get("causal_no_admision") in (None, "")
+    assert fila.get("estado_confirmado_por_humano") in (None, "")
     assert decision["estado_sugerido"] == "ADMITIDO"
-    assert fila["estado_sugerido"] == "ADMITIDO"
 
 
 def test_verificacion_mintrabajo_nunca_se_autocompleta():
