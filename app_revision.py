@@ -430,7 +430,63 @@ def main():
     firma_valor = {"Pendiente": None, "Sí coincide": True, "No coincide": False}[firma_verificada]
 
     st.divider()
-    st.subheader("Confirmar experiencia y educación relacionada con el cargo")
+    st.subheader("Confirmar información académica")
+    st.caption("Diplomas, actas de grado y títulos — acreditan el nivel mínimo de educación exigido. El sistema sugiere, pero nunca decide solo.")
+
+    estudios_formales = [e for e in estudios if (e.get("nivel") or "").lower() != "curso_capacitacion"]
+    estudio_override = "Según el sistema"
+    if estudios_formales:
+        with st.container(border=True):
+            col_txt, col_img = st.columns([2, 1])
+            with col_txt:
+                for e in estudios_formales:
+                    st.markdown(f"**{e.get('titulo') or (e.get('nivel') or '—').capitalize()}** — *{e.get('institucion', '—')}*")
+                    st.caption(e.get("fecha_terminacion") or e.get("fecha_fin") or "")
+                resultado_sistema = resultado["resultados_validacion"]["estudio"]
+                st.markdown(
+                    f'<div class="to-ai-box"><span class="to-ai-label">Resultado del sistema</span>'
+                    f'<strong>{_ETIQUETA_ESTADO.get(resultado_sistema.estado, resultado_sistema.estado)}</strong> — <em>{resultado_sistema.motivo}</em></div>',
+                    unsafe_allow_html=True,
+                )
+                estudio_override = st.radio("¿Se cumple el requisito mínimo de educación?", _OPCIONES_VALIDEZ, horizontal=True, key=f"estudio_val_{hash_}")
+            with col_img:
+                for e in estudios_formales:
+                    _documento_clickeable(pdf_path, resultado, e.get("paginas", []), etiqueta=e.get("titulo") or e.get("nivel"))
+    else:
+        st.caption("No se aportó información académica formal (diplomas/actas de grado).")
+
+    st.divider()
+    st.subheader("Confirmar educación relacionada con las funciones del cargo")
+    st.caption("Cursos y capacitaciones — distintos de la información académica de arriba. El sistema sugiere SI/NO, pero nunca decide solo.")
+
+    decisiones_relacionado_estudio = []
+    cursos = [e for e in estudios if (e.get("nivel") or "").lower() == "curso_capacitacion"]
+    if not cursos:
+        st.caption("No se aportaron cursos o capacitaciones.")
+    for i, e in enumerate(estudios):
+        if (e.get("nivel") or "").lower() != "curso_capacitacion":
+            decisiones_relacionado_estudio.append(e.get("relacionado", "PENDIENTE"))
+            continue
+        with st.container(border=True):
+            col_txt, col_img = st.columns([2, 1])
+            with col_txt:
+                st.markdown(f"**Curso:** {e.get('nombre_curso', '—')} — *{e.get('institucion', '—')}*")
+                sugerido = e.get("relacionado_sugerido")
+                if sugerido:
+                    st.markdown(
+                        f'<div class="to-ai-box"><span class="to-ai-label">Sugerencia de la IA</span>'
+                        f'<strong>{sugerido}</strong> — <em>{e.get("justificacion_relacionado", "")}</em></div>',
+                        unsafe_allow_html=True,
+                    )
+                opciones = ["PENDIENTE", "SI", "NO"]
+                indice_defecto = opciones.index(sugerido) if sugerido in opciones else 0
+                eleccion = st.radio("¿Relacionado con el cargo?", opciones, index=indice_defecto, horizontal=True, key=f"estudio_rel_{hash_}_{i}")
+                decisiones_relacionado_estudio.append(eleccion)
+            with col_img:
+                _documento_clickeable(pdf_path, resultado, e.get("paginas", []))
+
+    st.divider()
+    st.subheader("Confirmar experiencia laboral relacionada con el cargo")
     st.caption("El sistema sugiere SI/NO, pero nunca decide solo — confirma o corrige cada una.")
 
     decisiones_relacionado_laboral = []
@@ -454,50 +510,6 @@ def main():
                 decisiones_relacionado_laboral.append(eleccion)
             with col_img:
                 _documento_clickeable(pdf_path, resultado, exp.get("paginas", []))
-
-    decisiones_relacionado_estudio = []
-    for i, e in enumerate(estudios):
-        if (e.get("nivel") or "").lower() != "curso_capacitacion":
-            decisiones_relacionado_estudio.append(e.get("relacionado", "PENDIENTE"))
-            continue
-        with st.container(border=True):
-            col_txt, col_img = st.columns([2, 1])
-            with col_txt:
-                st.markdown(f"**Curso:** {e.get('nombre_curso', '—')} — *{e.get('institucion', '—')}*")
-                sugerido = e.get("relacionado_sugerido")
-                if sugerido:
-                    st.markdown(
-                        f'<div class="to-ai-box"><span class="to-ai-label">Sugerencia de la IA</span>'
-                        f'<strong>{sugerido}</strong> — <em>{e.get("justificacion_relacionado", "")}</em></div>',
-                        unsafe_allow_html=True,
-                    )
-                opciones = ["PENDIENTE", "SI", "NO"]
-                indice_defecto = opciones.index(sugerido) if sugerido in opciones else 0
-                eleccion = st.radio("¿Relacionado con el cargo?", opciones, index=indice_defecto, horizontal=True, key=f"estudio_rel_{hash_}_{i}")
-                decisiones_relacionado_estudio.append(eleccion)
-            with col_img:
-                _documento_clickeable(pdf_path, resultado, e.get("paginas", []))
-
-    estudios_formales = [e for e in estudios if (e.get("nivel") or "").lower() != "curso_capacitacion"]
-    estudio_override = "Según el sistema"
-    if estudios_formales:
-        st.markdown("**Diplomas y certificados de estudio**")
-        with st.container(border=True):
-            col_txt, col_img = st.columns([2, 1])
-            with col_txt:
-                for e in estudios_formales:
-                    st.markdown(f"**{e.get('titulo') or (e.get('nivel') or '—').capitalize()}** — *{e.get('institucion', '—')}*")
-                    st.caption(e.get("fecha_terminacion") or e.get("fecha_fin") or "")
-                resultado_sistema = resultado["resultados_validacion"]["estudio"]
-                st.markdown(
-                    f'<div class="to-ai-box"><span class="to-ai-label">Resultado del sistema</span>'
-                    f'<strong>{_ETIQUETA_ESTADO.get(resultado_sistema.estado, resultado_sistema.estado)}</strong> — <em>{resultado_sistema.motivo}</em></div>',
-                    unsafe_allow_html=True,
-                )
-                estudio_override = st.radio("¿Se cumple el requisito mínimo de educación?", _OPCIONES_VALIDEZ, horizontal=True, key=f"estudio_val_{hash_}")
-            with col_img:
-                for e in estudios_formales:
-                    _documento_clickeable(pdf_path, resultado, e.get("paginas", []), etiqueta=e.get("titulo") or e.get("nivel"))
 
     st.divider()
     st.subheader("Confirmar certificado de alturas y evaluación médica")
