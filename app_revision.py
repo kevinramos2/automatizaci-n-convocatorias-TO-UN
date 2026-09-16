@@ -9,6 +9,7 @@ disco por hash del archivo para no volver a cobrar la API en cada recarga.
 Uso: streamlit run app_revision.py
 """
 import base64
+import hashlib
 import json
 import os
 from datetime import date
@@ -154,6 +155,17 @@ def _inyectar_estilos(oscuro: bool):
 
         .to-ai-box {{ background: var(--to-accent-tint); border: 1px solid var(--to-accent-tint-border); border-radius: 9px; padding: 11px 14px; margin: 8px 0; font-size: 13px; color: var(--to-ink); }}
         .to-ai-label {{ color: var(--to-accent); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 2px; }}
+
+        /* Documentos: clic en cualquier parte de la imagen la amplía — antes había
+           que apuntar al botón de zoom de Streamlit en la esquina, poco intuitivo.
+           Streamlit sanea el HTML de st.markdown y quita los onclick, así que esto
+           es un lightbox 100% CSS (ancla + :target), sin JavaScript. */
+        .to-img-click {{ cursor: zoom-in; border-radius: 8px; border: 1px solid var(--to-border); width: 100%; display: block; margin-bottom: 3px; transition: opacity 0.15s; }}
+        .to-img-click:hover {{ opacity: 0.85; }}
+        .to-img-pie {{ color: var(--to-ink-faint); font-size: 11.5px; margin-bottom: 10px; }}
+        .to-lightbox {{ display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; align-items: center; justify-content: center; cursor: zoom-out; padding: 24px; text-decoration: none; }}
+        .to-lightbox:target {{ display: flex; }}
+        .to-lightbox img {{ max-width: 95vw; max-height: 95vh; border-radius: 8px; }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -174,6 +186,26 @@ def _pill_html(estado: str) -> str:
 @st.cache_data
 def _imagen_pagina(pdf_path: str, pagina: int, rotacion: int = 0) -> bytes:
     return base64.standard_b64decode(pagina_a_imagen_base64(pdf_path, pagina, dpi=150, rotacion=rotacion))
+
+
+def _imagen_clickeable(pdf_path: str, pagina: int, rotacion: int, etiqueta: str | None = None) -> None:
+    """Muestra la página como imagen clicable en cualquier punto (no solo un
+
+    botón de zoom en la esquina) — clic la amplía, clic de nuevo la cierra.
+    Streamlit sanea el HTML de st.markdown y quita los onclick, así que es un
+    lightbox por CSS puro: el clic navega a un ancla (#id) que un :target
+    muestra; el lightbox mismo es un enlace a "#" que lo cierra al clicear.
+    """
+    b64 = base64.standard_b64encode(_imagen_pagina(pdf_path, pagina, rotacion)).decode("ascii")
+    src = f"data:image/png;base64,{b64}"
+    aid = "lb-" + hashlib.md5(f"{pdf_path}:{pagina}:{rotacion}".encode()).hexdigest()[:10]
+    pie = f'<div class="to-img-pie">{etiqueta}</div>' if etiqueta else ""
+    st.markdown(
+        f'<a href="#{aid}"><img class="to-img-click" src="{src}"></a>'
+        f"{pie}"
+        f'<a href="#" class="to-lightbox" id="{aid}"><img src="{src}"></a>',
+        unsafe_allow_html=True,
+    )
 
 
 def _rotacion_de_pagina(resultado: dict, pagina: int) -> int:
@@ -392,15 +424,14 @@ def main():
     paginas_formulario = _paginas_de(documentos, "formulario_inscripcion")
     paginas_cedula = _paginas_de(documentos, "cedula")
     with col_firma_1:
-        st.caption("Formulario (última página, donde firma)")
-        if paginas_formulario:
-            p = paginas_formulario[-1]
-            st.image(_imagen_pagina(pdf_path, p, _rotacion_de_pagina(resultado, p)))
+        st.caption(f"Formulario ({len(paginas_formulario)} página{'s' if len(paginas_formulario) != 1 else ''}) — la firma va en la última")
+        for p in paginas_formulario:
+            _imagen_clickeable(pdf_path, p, _rotacion_de_pagina(resultado, p), etiqueta=f"Página {p}")
     with col_firma_2:
         st.caption("Cédula")
         if paginas_cedula:
             p = paginas_cedula[0]
-            st.image(_imagen_pagina(pdf_path, p, _rotacion_de_pagina(resultado, p)))
+            _imagen_clickeable(pdf_path, p, _rotacion_de_pagina(resultado, p))
 
     firma_verificada = st.radio(
         "¿La firma del formulario coincide con la de la cédula?",
@@ -434,7 +465,7 @@ def main():
             with col_img:
                 if exp.get("paginas"):
                     p = exp["paginas"][0]
-                    st.image(_imagen_pagina(pdf_path, p, _rotacion_de_pagina(resultado, p)))
+                    _imagen_clickeable(pdf_path, p, _rotacion_de_pagina(resultado, p))
 
     decisiones_relacionado_estudio = []
     for i, e in enumerate(estudios):
@@ -459,7 +490,29 @@ def main():
             with col_img:
                 if e.get("paginas"):
                     p = e["paginas"][0]
-                    st.image(_imagen_pagina(pdf_path, p, _rotacion_de_pagina(resultado, p)))
+                    _imagen_clickeable(pdf_path, p, _rotacion_de_pagina(resultado, p))
+
+    estudios_formales = [e for e in estudios if (e.get("nivel") or "").lower() != "curso_capacitacion"]
+    estudio_override = "Según el sistema"
+    if estudios_formales:
+        st.markdown("**Diplomas y certificados de estudio**")
+        with st.container(border=True):
+            col_txt, col_img = st.columns([2, 1])
+            with col_txt:
+                for e in estudios_formales:
+                    st.markdown(f"**{e.get('titulo') or (e.get('nivel') or '—').capitalize()}** — *{e.get('institucion', '—')}*")
+                    st.caption(e.get("fecha_terminacion") or e.get("fecha_fin") or "")
+                resultado_sistema = resultado["resultados_validacion"]["estudio"]
+                st.markdown(
+                    f'<div class="to-ai-box"><span class="to-ai-label">Resultado del sistema</span>'
+                    f'<strong>{_ETIQUETA_ESTADO.get(resultado_sistema.estado, resultado_sistema.estado)}</strong> — <em>{resultado_sistema.motivo}</em></div>',
+                    unsafe_allow_html=True,
+                )
+                estudio_override = st.radio("¿Se cumple el requisito mínimo de educación?", _OPCIONES_VALIDEZ, horizontal=True, key=f"estudio_val_{hash_}")
+            with col_img:
+                for e in estudios_formales:
+                    for p in e.get("paginas", []):
+                        _imagen_clickeable(pdf_path, p, _rotacion_de_pagina(resultado, p))
 
     st.divider()
     st.subheader("Confirmar certificado de alturas y evaluación médica")
@@ -481,7 +534,7 @@ def main():
                 alturas_override = st.radio("¿Es válido el certificado de alturas al cierre de inscripción?", _OPCIONES_VALIDEZ, horizontal=True, key=f"alturas_val_{hash_}")
             with col_img:
                 for p in alturas.get("paginas", []):
-                    st.image(_imagen_pagina(pdf_path, p, _rotacion_de_pagina(resultado, p)))
+                    _imagen_clickeable(pdf_path, p, _rotacion_de_pagina(resultado, p))
 
     medica_override = "Según el sistema"
     if medica and medica.get("aportado"):
@@ -499,7 +552,7 @@ def main():
                 medica_override = st.radio("¿Es válida la evaluación médica?", _OPCIONES_VALIDEZ, horizontal=True, key=f"medica_val_{hash_}")
             with col_img:
                 for p in medica.get("paginas", []):
-                    st.image(_imagen_pagina(pdf_path, p, _rotacion_de_pagina(resultado, p)))
+                    _imagen_clickeable(pdf_path, p, _rotacion_de_pagina(resultado, p))
 
     st.divider()
 
@@ -513,7 +566,7 @@ def main():
             firma_verificada=firma_valor,
         ),
         "cedula": validar_cedula(cedula),
-        "estudio": validar_constancia_estudio(estudios_confirmados),
+        "estudio": _aplicar_override_manual(validar_constancia_estudio(estudios_confirmados), estudio_override),
         "laboral": validar_constancias_laborales(laborales_confirmadas, cfg),
         "alturas": _aplicar_override_manual(validar_certificado_alturas(alturas, cfg), alturas_override),
         "medica": _aplicar_override_manual(validar_evaluacion_medica(medica, cfg), medica_override),
@@ -575,6 +628,13 @@ def main():
                         "id_aspirante": id_aspirante, "campo": "validez_evaluacion_medica",
                         "valor_extraido_ia": resultado["resultados_validacion"]["medica"].estado,
                         "valor_corregido_humano": medica_override,
+                        "corregido_por": revisado_por, "fecha_correccion": date.today().isoformat(),
+                    })
+                if estudios_formales:
+                    filas_auditoria.append({
+                        "id_aspirante": id_aspirante, "campo": "validez_diplomas_estudio",
+                        "valor_extraido_ia": resultado["resultados_validacion"]["estudio"].estado,
+                        "valor_corregido_humano": estudio_override,
                         "corregido_por": revisado_por, "fecha_correccion": date.today().isoformat(),
                     })
                 for i, (exp, d) in enumerate(zip(laborales, decisiones_relacionado_laboral)):
