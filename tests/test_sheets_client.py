@@ -27,11 +27,14 @@ class _WorksheetFalso:
 
     def update(self, rango, valores, value_input_option=None):
         self.llamadas_update.append((rango, valores))
-        # Simula escribir en la fila indicada por el rango tipo "A3:BP3"
+        # Simula escribir empezando en la fila indicada por el rango (ej. "A3:BP3"
+        # o "A3:BP4" para varias filas) — una fila de `valores` por cada fila del rango.
         fila_num = int("".join(c for c in rango.split(":")[0] if c.isdigit()))
-        while len(self.filas) < fila_num:
-            self.filas.append([])
-        self.filas[fila_num - 1] = valores[0]
+        for offset, fila_valores in enumerate(valores):
+            destino = fila_num + offset
+            while len(self.filas) < destino:
+                self.filas.append([])
+            self.filas[destino - 1] = fila_valores
 
     def append_row(self, valores, value_input_option=None):
         self.llamadas_append.append(valores)
@@ -51,6 +54,9 @@ class _WorksheetFalso:
     def cell(self, row, col):
         valor = self.filas[row - 1][col - 1] if len(self.filas) >= row and len(self.filas[row - 1]) >= col else None
         return _CeldaFalsa(row, value=valor)
+
+    def get_all_values(self):
+        return list(self.filas)
 
 
 class _SpreadsheetFalso:
@@ -85,7 +91,11 @@ def test_upsert_crea_fila_nueva_si_no_existe_el_id():
     ws = _WorksheetFalso("Maestro", filas=[[e for _, e in MAESTRO]])
     resultado = upsert_fila(ws, MAESTRO, "id_aspirante", "123", {"id_aspirante": "123", "nombre_aspirante": "Juan"})
     assert resultado == "creada"
-    assert len(ws.llamadas_append) == 1
+    # update() con rango explícito, no append_row(): confirmado con datos reales
+    # que el endpoint de "agregar" de Sheets no es fiable con escrituras seguidas.
+    assert len(ws.llamadas_append) == 0
+    assert len(ws.llamadas_update) == 1
+    assert len(ws.filas) == 2  # encabezado + la fila nueva
 
 
 def test_upsert_actualiza_fila_existente_en_vez_de_duplicar():
@@ -134,7 +144,32 @@ def test_agregar_filas_hoja_de_solo_insercion():
         {"id_aspirante": "123", "tipo_documento": "cedula"},
         {"id_aspirante": "123", "tipo_documento": "constancia_estudio"},
     ])
-    assert len(ws.llamadas_append) == 2
+    assert len(ws.llamadas_append) == 0
+    assert len(ws.filas) == 3  # encabezado + 2 filas nuevas
+
+
+def test_agregar_filas_no_pisa_datos_existentes():
+    ws = _WorksheetFalso("Documentos por candidato", filas=[
+        [e for _, e in DOCUMENTOS_POR_CANDIDATO],
+        ["999", "cedula", "", "", "", "", "", ""],
+    ])
+    agregar_filas(ws, DOCUMENTOS_POR_CANDIDATO, [{"id_aspirante": "123", "tipo_documento": "constancia_estudio"}])
+    assert len(ws.filas) == 3
+    assert ws.filas[1][0] == "999"  # la fila que ya estaba, intacta
+    assert ws.filas[2][0] == "123"  # la fila nueva, después
+
+
+def test_upsert_secuencial_no_sobrescribe_candidatos_anteriores():
+    # Réplica del caso real reportado: varios aspirantes distintos guardados uno
+    # tras otro deben quedar en filas separadas, no todos en la misma.
+    ws = _WorksheetFalso("Maestro", filas=[[e for _, e in MAESTRO]])
+    ids = ["111", "222", "333"]
+    for id_ in ids:
+        resultado = upsert_fila(ws, MAESTRO, "id_aspirante", id_, {"id_aspirante": id_, "nombre_aspirante": f"Candidato {id_}"})
+        assert resultado == "creada"
+    assert len(ws.filas) == 1 + len(ids)
+    col_id = [c for c, _ in MAESTRO].index("id_aspirante")
+    assert [fila[col_id] for fila in ws.filas[1:]] == ids
 
 
 if __name__ == "__main__":

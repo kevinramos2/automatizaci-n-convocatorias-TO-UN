@@ -60,6 +60,26 @@ def asegurar_hojas(spreadsheet: gspread.Spreadsheet, esquemas: dict = TODAS_LAS_
     return resultado
 
 
+def _escribir_al_final(worksheet: gspread.Worksheet, filas: list[list], num_columnas: int) -> None:
+    """Calcula la fila destino con una lectura fresca de la hoja y escribe ahí
+
+    con update() en vez de append_row()/append_rows(). Confirmado con datos
+    reales: el endpoint values.append de Sheets (lo que usa append_row) "adivina"
+    dónde termina la tabla, y esa detección no es confiable cuando se le pide
+    agregar varias veces seguidas en poco tiempo — un lote de 3 guardados
+    distintos terminó con solo el último sobreviviendo, cada uno "creado"
+    correctamente según la respuesta de la API, pero todos aterrizando en la
+    misma fila. update() con un rango explícito no depende de esa detección:
+    nosotros decidimos la fila a partir de una lectura propia, justo antes de
+    escribir.
+    """
+    filas_actuales = len(worksheet.get_all_values())
+    primera_fila_destino = filas_actuales + 1
+    ultima_fila_destino = primera_fila_destino + len(filas) - 1
+    ultima_columna = gspread.utils.rowcol_to_a1(1, num_columnas).rstrip("0123456789")
+    worksheet.update(f"A{primera_fila_destino}:{ultima_columna}{ultima_fila_destino}", filas, value_input_option="USER_ENTERED")
+
+
 def upsert_fila(worksheet: gspread.Worksheet, esquema: list[tuple[str, str]], clave_id: str, valor_id: str, datos: dict) -> str:
     """Inserta o actualiza (por `clave_id`) una fila. Devuelve "creada" o "actualizada".
 
@@ -74,7 +94,7 @@ def upsert_fila(worksheet: gspread.Worksheet, esquema: list[tuple[str, str]], cl
     celda = worksheet.find(str(valor_id), in_column=col_id)  # None si no existe (gspread >= 6)
 
     if celda is None:
-        worksheet.append_row(fila, value_input_option="USER_ENTERED")
+        _escribir_al_final(worksheet, [fila], len(esquema))
         return "creada"
 
     # Salvaguarda contra condiciones de carrera: entre el find() de arriba y este
@@ -104,4 +124,4 @@ def agregar_filas(worksheet: gspread.Worksheet, esquema: list[tuple[str, str]], 
     if not filas:
         return
     valores = [fila_desde_dict(esquema, d) for d in filas]
-    worksheet.append_rows(valores, value_input_option="USER_ENTERED")
+    _escribir_al_final(worksheet, valores, len(esquema))
