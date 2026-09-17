@@ -12,6 +12,7 @@ from pipeline.clasificador_paginas import clasificar_paginas
 from pipeline.clasificador_relacionado import clasificar_relacionado
 from pipeline.consistencia import cruzar_experiencia_formulario_vs_constancias
 from pipeline.extractor_documentos import extraer_documento
+from pipeline.rotacion_auto import detectar_rotacion
 from pipeline.validacion_admision import (
     evaluar_admision,
     validar_cedula,
@@ -90,6 +91,30 @@ def _mejor_candidato(candidatos: list[dict], validar_fn, cfg: dict):
     return evaluados[0]
 
 
+def _detectar_rotaciones_paginas(pdf_path: str, grupos_paginas: list[list[int]], client: anthropic.Anthropic) -> tuple[dict, dict]:
+    """Detecta automáticamente la orientación correcta de cada documento que se
+
+    va a mostrar en el panel (formulario, cédula, cada constancia de estudio,
+    cada constancia laboral, alturas, médica) — una llamada por documento, a su
+    primera página, aplicada a TODAS sus páginas (un mismo documento físico
+    siempre trae la misma orientación en todas sus hojas, confirmado con datos
+    reales). No depende de ninguna rotación "base": cada valor es absoluto, así
+    que un documento insertado de lado dentro de un escaneo por lo demás
+    correcto (visto repetidas veces con certificados apaisados de SENA/ALySO)
+    queda bien igual que el resto, sin intervención manual.
+    """
+    rotaciones: dict[str, int] = {}
+    uso_total = _uso_vacio()
+    for paginas in grupos_paginas:
+        if not paginas:
+            continue
+        resultado = detectar_rotacion(pdf_path, paginas[0], client=client)
+        _sumar_uso(uso_total, resultado["uso"])
+        for p in paginas:
+            rotaciones[str(p)] = resultado["rotacion"]
+    return rotaciones, uso_total
+
+
 def _items_para_relacionado(estudios: list[dict], laborales: list[dict]) -> list[dict]:
     items = []
     for i, e in enumerate(estudios):
@@ -100,15 +125,31 @@ def _items_para_relacionado(estudios: list[dict], laborales: list[dict]) -> list
     return items
 
 
-def procesar_expediente(pdf_path: str, criterios: dict, cfg: dict, client: anthropic.Anthropic | None = None, rotacion: int = 0) -> dict:
+def procesar_expediente(pdf_path: str, criterios: dict, cfg: dict, client: anthropic.Anthropic | None = None, rotacion: int | None = None) -> dict:
     """`rotacion` (0/90/180/270): corrige expedientes escaneados girados. Se aplica
 
-    solo al RENDERIZADO de imágenes enviadas a Claude (clasificación y extracción);
-    la detección de páginas en blanco es insensible a rotación (mide varianza de
-    píxeles, no orientación), así que no la necesita.
+    al RENDERIZADO de imágenes enviadas a Claude para clasificación y extracción
+    (la detección de páginas en blanco es insensible a rotación — mide varianza
+    de píxeles, no orientación — así que no la necesita). Si se deja en `None`
+    (el caso normal: subir un expediente nuevo desde el panel), se detecta
+    automáticamente con un modelo de visión barato en vez de asumir 0°.
+
+    Al final, independientemente de `rotacion`, también se detecta la
+    orientación de cada documento individual que el panel va a mostrar
+    (formulario, cédula, cada constancia, alturas, médica) — un documento
+    insertado de lado dentro de un escaneo por lo demás correcto (visto
+    repetidas veces con certificados apaisados de SENA/ALySO) queda bien
+    igual que el resto, para cualquier aspirante, sin inspección manual.
+    El resultado incluye "rotacion" (la usada para clasificar/extraer) y
+    "rotaciones_paginas" (por documento, para mostrar en el panel).
     """
     client = client or anthropic.Anthropic()
     uso_total = _uso_vacio()
+
+    if rotacion is None:
+        deteccion_base = detectar_rotacion(pdf_path, 1, client=client)
+        _sumar_uso(uso_total, deteccion_base["uso"])
+        rotacion = deteccion_base["rotacion"]
 
     # 1-2: detección de páginas en blanco (local, sin API) + clasificación (Haiku)
     analisis_paginas = clasificar_paginas_pdf(pdf_path)
@@ -184,6 +225,21 @@ def procesar_expediente(pdf_path: str, criterios: dict, cfg: dict, client: anthr
     # 7: cruce de consistencia formulario vs. constancias laborales
     inconsistencias = cruzar_experiencia_formulario_vs_constancias(formulario.get("experiencia", []), laborales, cfg)
 
+    # 8: orientación de cada documento que el panel va a mostrar (ver docstring)
+    grupos_para_mostrar = []
+    if formulario_docs:
+        grupos_para_mostrar.append(formulario_docs[0]["paginas"])
+    if cedula_docs:
+        grupos_para_mostrar.append(cedula_docs[0]["paginas"])
+    grupos_para_mostrar += [e.get("paginas", []) for e in estudios]
+    grupos_para_mostrar += [e.get("paginas", []) for e in laborales]
+    if alturas:
+        grupos_para_mostrar.append(alturas.get("paginas", []))
+    if medica.get("paginas"):
+        grupos_para_mostrar.append(medica["paginas"])
+    rotaciones_paginas, uso_rotaciones = _detectar_rotaciones_paginas(pdf_path, grupos_para_mostrar, client)
+    _sumar_uso(uso_total, uso_rotaciones)
+
     return {
         "paginas_blancas": paginas_blancas,
         "clasificacion": clasificacion,
@@ -198,5 +254,7 @@ def procesar_expediente(pdf_path: str, criterios: dict, cfg: dict, client: anthr
         "resultados_validacion": resultados_validacion,
         "decision": decision,
         "inconsistencias": inconsistencias,
+        "rotacion": rotacion,
+        "rotaciones_paginas": rotaciones_paginas,
         "uso_total": uso_total,
     }
