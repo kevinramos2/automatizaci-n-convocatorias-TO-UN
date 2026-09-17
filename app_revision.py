@@ -154,6 +154,28 @@ def _inyectar_estilos(oscuro: bool):
 
         .to-ai-box {{ background: var(--to-accent-tint); border: 1px solid var(--to-accent-tint-border); border-radius: 9px; padding: 11px 14px; margin: 8px 0; font-size: 13px; color: var(--to-ink); }}
         .to-ai-label {{ color: var(--to-accent); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 2px; }}
+
+        /* Clic-en-la-imagen para ver todas las páginas: el botón nativo del popover
+           (st.popover, ya usado para no duplicar imágenes) se vuelve invisible y se
+           estira sobre toda la miniatura con position:absolute — el clic sigue siendo
+           manejado 100% por Streamlit, esto es solo CSS de posicionamiento. Nada de
+           HTML/base64 a mano (esa es la causa por la que el lightbox anterior se
+           rompía con expedientes reales). */
+        div[class*="st-key-docclick_"] {{ position: relative; cursor: pointer; }}
+        div[class*="st-key-docclick_"] img {{ transition: filter 0.15s ease; }}
+        div[class*="st-key-docclick_"]:hover img {{ filter: brightness(0.85); }}
+        div[class*="st-key-docclick_"] [data-testid="stPopover"] {{ position: absolute; inset: 0; z-index: 5; }}
+        div[class*="st-key-docclick_"] [data-testid="stPopoverButton"] {{
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            opacity: 0; margin: 0; padding: 0; border: none; cursor: pointer;
+        }}
+        div[class*="st-key-docclick_"]::after {{
+            content: "🔍 Ver todas las páginas"; position: absolute; left: 50%; bottom: 8px;
+            transform: translateX(-50%); background: rgba(0, 0, 0, 0.65); color: #fff;
+            font-size: 0.72rem; padding: 3px 10px; border-radius: 999px;
+            pointer-events: none; opacity: 0; transition: opacity 0.15s ease; z-index: 6;
+        }}
+        div[class*="st-key-docclick_"]:hover::after {{ opacity: 1; }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -177,25 +199,34 @@ def _imagen_pagina(pdf_path: str, pagina: int, rotacion: int = 0) -> bytes:
 
 
 def _documento_clickeable(pdf_path: str, resultado: dict, paginas: list[int], etiqueta: str | None = None) -> None:
-    """Muestra solo la primera página; si el documento tiene más, un botón nativo
+    """Muestra solo la primera página; si el documento tiene más, clic en la imagen
 
-    de Streamlit ("Ver las N páginas") las despliega en un popover. Se probó un
-    lightbox hecho con CSS puro (ancla + :target) con imágenes en base64
-    incrustadas en el HTML, pero con expedientes reales (muchos documentos, cada
-    uno con varias páginas) la página se volvía demasiado pesada y varias
-    imágenes dejaban de renderizarse o de responder al clic — de ahí que esto use
-    los mecanismos propios de Streamlit (st.image, st.popover), más pesados de
-    programar pero mucho más confiables.
+    despliega TODAS las páginas. Por dentro sigue siendo st.image + st.popover (nada
+    de HTML/base64 a mano): cada página se renderiza una sola vez, y las páginas del
+    popover solo se generan cuando el usuario lo abre — así no se duplican imágenes
+    ni se vuelve pesada la página. Un lightbox hecho con CSS puro (ancla + :target),
+    con imágenes en base64 incrustadas a mano, se probó antes y con expedientes
+    reales (muchos documentos, cada uno con varias páginas) se volvía demasiado
+    pesado y varias imágenes dejaban de renderizarse o de responder al clic.
+    "Clic en la imagen" aquí es solo CSS: el botón real del popover se hace
+    invisible y se estira sobre la miniatura con position:absolute (ver
+    _inyectar_estilos) — el clic lo sigue manejando Streamlit, no JavaScript propio.
     """
     if not paginas:
         return
 
     primera = paginas[0]
-    st.image(_imagen_pagina(pdf_path, primera, _rotacion_de_pagina(resultado, primera)))
-    if etiqueta:
-        st.caption(etiqueta)
+    if len(paginas) == 1:
+        st.image(_imagen_pagina(pdf_path, primera, _rotacion_de_pagina(resultado, primera)))
+        if etiqueta:
+            st.caption(etiqueta)
+        return
 
-    if len(paginas) > 1:
+    clave = f"docclick_{resultado.get('_hash', '')}_{primera}"
+    with st.container(key=clave):
+        st.image(_imagen_pagina(pdf_path, primera, _rotacion_de_pagina(resultado, primera)))
+        if etiqueta:
+            st.caption(etiqueta)
         with st.popover(f"Ver las {len(paginas)} páginas"):
             for p in paginas:
                 st.image(_imagen_pagina(pdf_path, p, _rotacion_de_pagina(resultado, p)), caption=f"Página {p}")
@@ -312,7 +343,11 @@ def _elegir_expediente_procesado(cfg: dict) -> dict | None:
 
 
 def _subir_expediente_nuevo(criterios: dict, cfg: dict) -> dict | None:
-    archivo_subido = st.sidebar.file_uploader("PDF del expediente del aspirante", type="pdf")
+    # key versionada: tras guardar una revisión se incrementa "uploader_version" para
+    # forzar un file_uploader en blanco (Streamlit conserva el archivo cargado entre
+    # reruns mientras la key no cambie).
+    clave_uploader = f"uploader_expediente_{st.session_state.get('uploader_version', 0)}"
+    archivo_subido = st.sidebar.file_uploader("PDF del expediente del aspirante", type="pdf", key=clave_uploader)
     if archivo_subido is None:
         st.sidebar.info("Adjunta un PDF para procesarlo.")
         return None
@@ -337,8 +372,17 @@ def _subir_expediente_nuevo(criterios: dict, cfg: dict) -> dict | None:
     return st.session_state.get("resultado_expediente")
 
 
+def _url_google_sheet() -> str | None:
+    spreadsheet_id = os.environ.get("GOOGLE_SHEETS_SPREADSHEET_ID")
+    return f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit" if spreadsheet_id else None
+
+
 def _barra_lateral(cfg: dict) -> dict | None:
     st.sidebar.title("Proceso de selección TO 2026")
+    url_sheet = _url_google_sheet()
+    if url_sheet:
+        # Siempre visible, sin depender de haber guardado una revisión primero.
+        st.sidebar.link_button("Abrir Google Sheet ↗", url_sheet, use_container_width=True)
     fuente = st.sidebar.radio("Expediente a revisar", ["Elegir un expediente ya procesado", "Subir un expediente nuevo"])
     st.sidebar.divider()
 
@@ -424,7 +468,10 @@ def main():
     paginas_formulario = _paginas_de(documentos, "formulario_inscripcion")
     paginas_cedula = _paginas_de(documentos, "cedula")
     with col_firma_1:
-        st.caption(f"Formulario — clic para ver las {len(paginas_formulario)} página(s), incluida la firma")
+        if len(paginas_formulario) > 1:
+            st.caption(f"Formulario — clic en la imagen para ver las {len(paginas_formulario)} páginas, incluida la firma")
+        else:
+            st.caption("Formulario — incluye la firma")
         _documento_clickeable(pdf_path, resultado, paginas_formulario)
     with col_firma_2:
         st.caption("Cédula")
@@ -673,8 +720,16 @@ def main():
                 resultado_cache["fecha_revision"] = date.today().isoformat()
                 guardar_resultado(hash_, resultado_cache)
 
-            st.success(f"Revisión guardada. Estado final: {decision_actualizada['estado_sugerido']}")
-            st.link_button("Abrir Google Sheet", spreadsheet.url)
+            # Independientemente de la decisión (ADMITIDO/NO ADMITIDO), se refresca y
+            # se quita el expediente actual de la vista — el toast sobrevive al
+            # st.rerun(). En "Elegir un expediente ya procesado" el aspirante ya no
+            # aparece en «Pendientes de revisión» (su estado cambió), así que el
+            # selector pasa solo al siguiente; en "Subir un expediente nuevo" se
+            # limpia la sesión y se resetea el uploader para dejarlo en blanco.
+            st.toast(f"Revisión guardada. Estado final: {decision_actualizada['estado_sugerido']}")
+            st.session_state.pop("resultado_expediente", None)
+            st.session_state["uploader_version"] = st.session_state.get("uploader_version", 0) + 1
+            st.rerun()
         except Exception as exc:
             st.error(f"No se pudo guardar: {exc}")
 
