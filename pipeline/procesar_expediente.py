@@ -115,11 +115,24 @@ def _detectar_rotaciones_paginas(pdf_path: str, grupos_paginas: list[list[int]],
     return rotaciones, uso_total
 
 
+_NIVELES_ESCOLARES = {"primaria", "secundaria"}
+
+
 def _items_para_relacionado(estudios: list[dict], laborales: list[dict]) -> list[dict]:
+    """Solo entran los ítems que el panel muestra en "educación relacionada": cursos,
+    técnico, tecnólogo, profesional, etc. — el colegio (primaria/secundaria) no se
+    evalúa como "relacionado con el cargo", es la información académica mínima.
+    """
     items = []
     for i, e in enumerate(estudios):
-        if (e.get("nivel") or "").lower() == "curso_capacitacion":
-            items.append({"id": f"estudio_{i}", "descripcion": f"Curso: {e.get('nombre_curso')}, institución: {e.get('institucion')}"})
+        nivel = (e.get("nivel") or "").lower()
+        if nivel in _NIVELES_ESCOLARES:
+            continue
+        if nivel == "curso_capacitacion":
+            descripcion = f"Curso: {e.get('nombre_curso')}"
+        else:
+            descripcion = f"{nivel.capitalize() or 'Estudio'}: {e.get('titulo')}"
+        items.append({"id": f"estudio_{i}", "descripcion": f"{descripcion}, institución: {e.get('institucion')}"})
     for i, e in enumerate(laborales):
         items.append({"id": f"laboral_{i}", "descripcion": f"Cargo: {e.get('cargo')}. Funciones: {e.get('funciones')}"})
     return items

@@ -236,6 +236,13 @@ def _paginas_de(documentos: list[dict], tipo: str) -> list[int]:
 
 _OPCIONES_VALIDEZ = ["Según el sistema", "Sí, válido", "No es válido"]
 
+# Solo colegio (primaria/secundaria) cuenta como "información académica" — técnico,
+# tecnólogo, profesional, etc. son un nivel MAYOR al mínimo exigido para el cargo, así
+# que no hace falta verificarlos ahí; se muestran en "educación relacionada" junto con
+# los cursos, y de todas formas siguen contando automáticamente para el nivel mínimo.
+_NIVELES_ESCOLARES = {"primaria", "secundaria"}
+_MINTRABAJO_CONSULTA_ALTURAS = "https://app2.mintrabajo.gov.co/CentrosEntrenamiento/consulta_ext.aspx"
+
 
 def _aplicar_override_manual(automatico: ResultadoRegla, eleccion: str) -> ResultadoRegla:
     if eleccion == "Sí, válido":
@@ -431,46 +438,50 @@ def main():
 
     st.divider()
     st.subheader("Confirmar información académica")
-    st.caption("Diplomas, actas de grado y títulos — acreditan el nivel mínimo de educación exigido. El sistema sugiere, pero nunca decide solo.")
+    st.caption("Solo el colegio (primaria/secundaria) — acta de grado y diploma de bachiller. Acreditan el nivel mínimo de educación exigido. Cada documento se valida por separado.")
 
-    estudios_formales = [e for e in estudios if (e.get("nivel") or "").lower() != "curso_capacitacion"]
-    estudio_override = "Según el sistema"
-    if estudios_formales:
-        with st.container(border=True):
-            col_txt, col_img = st.columns([2, 1])
-            with col_txt:
-                for e in estudios_formales:
+    indices_academicos = [i for i, e in enumerate(estudios) if (e.get("nivel") or "").lower() in _NIVELES_ESCOLARES]
+    overrides_academicos: dict[int, str] = {}
+    if indices_academicos:
+        resultado_sistema = resultado["resultados_validacion"]["estudio"]
+        st.markdown(
+            f'<div class="to-ai-box"><span class="to-ai-label">Resultado del sistema</span>'
+            f'<strong>{_ETIQUETA_ESTADO.get(resultado_sistema.estado, resultado_sistema.estado)}</strong> — <em>{resultado_sistema.motivo}</em></div>',
+            unsafe_allow_html=True,
+        )
+        for i in indices_academicos:
+            e = estudios[i]
+            with st.container(border=True):
+                col_txt, col_img = st.columns([2, 1])
+                with col_txt:
                     st.markdown(f"**{e.get('titulo') or (e.get('nivel') or '—').capitalize()}** — *{e.get('institucion', '—')}*")
                     st.caption(e.get("fecha_terminacion") or e.get("fecha_fin") or "")
-                resultado_sistema = resultado["resultados_validacion"]["estudio"]
-                st.markdown(
-                    f'<div class="to-ai-box"><span class="to-ai-label">Resultado del sistema</span>'
-                    f'<strong>{_ETIQUETA_ESTADO.get(resultado_sistema.estado, resultado_sistema.estado)}</strong> — <em>{resultado_sistema.motivo}</em></div>',
-                    unsafe_allow_html=True,
-                )
-                estudio_override = st.radio("¿Se cumple el requisito mínimo de educación?", _OPCIONES_VALIDEZ, horizontal=True, key=f"estudio_val_{hash_}")
-            with col_img:
-                for e in estudios_formales:
+                    overrides_academicos[i] = st.radio(
+                        "¿Es válido este documento?", _OPCIONES_VALIDEZ, horizontal=True, key=f"estudio_val_{hash_}_{i}",
+                    )
+                with col_img:
                     _documento_clickeable(pdf_path, resultado, e.get("paginas", []), etiqueta=e.get("titulo") or e.get("nivel"))
     else:
-        st.caption("No se aportó información académica formal (diplomas/actas de grado).")
+        st.caption("No se aportó información académica del colegio (acta de grado o diploma de bachiller).")
 
     st.divider()
     st.subheader("Confirmar educación relacionada con las funciones del cargo")
-    st.caption("Cursos y capacitaciones — distintos de la información académica de arriba. El sistema sugiere SI/NO, pero nunca decide solo.")
+    st.caption("Cursos, técnicos, tecnólogos u otra formación adicional — distintos de la información académica del colegio. El sistema sugiere SI/NO, pero nunca decide solo.")
 
-    decisiones_relacionado_estudio = []
-    cursos = [e for e in estudios if (e.get("nivel") or "").lower() == "curso_capacitacion"]
-    if not cursos:
-        st.caption("No se aportaron cursos o capacitaciones.")
-    for i, e in enumerate(estudios):
-        if (e.get("nivel") or "").lower() != "curso_capacitacion":
-            decisiones_relacionado_estudio.append(e.get("relacionado", "PENDIENTE"))
-            continue
+    decisiones_relacionado_estudio: dict[int, str] = {}
+    indices_relacionados_estudio = [i for i in range(len(estudios)) if i not in indices_academicos]
+    if not indices_relacionados_estudio:
+        st.caption("No se aportaron cursos, técnicos u otra formación adicional.")
+    for i in indices_relacionados_estudio:
+        e = estudios[i]
+        es_curso = (e.get("nivel") or "").lower() == "curso_capacitacion"
         with st.container(border=True):
             col_txt, col_img = st.columns([2, 1])
             with col_txt:
-                st.markdown(f"**Curso:** {e.get('nombre_curso', '—')} — *{e.get('institucion', '—')}*")
+                if es_curso:
+                    st.markdown(f"**Curso:** {e.get('nombre_curso', '—')} — *{e.get('institucion', '—')}*")
+                else:
+                    st.markdown(f"**{e.get('titulo') or (e.get('nivel') or '—').capitalize()}** — *{e.get('institucion', '—')}*")
                 sugerido = e.get("relacionado_sugerido")
                 if sugerido:
                     st.markdown(
@@ -481,9 +492,9 @@ def main():
                 opciones = ["PENDIENTE", "SI", "NO"]
                 indice_defecto = opciones.index(sugerido) if sugerido in opciones else 0
                 eleccion = st.radio("¿Relacionado con el cargo?", opciones, index=indice_defecto, horizontal=True, key=f"estudio_rel_{hash_}_{i}")
-                decisiones_relacionado_estudio.append(eleccion)
+                decisiones_relacionado_estudio[i] = eleccion
             with col_img:
-                _documento_clickeable(pdf_path, resultado, e.get("paginas", []))
+                _documento_clickeable(pdf_path, resultado, e.get("paginas", []), etiqueta=e.get("titulo") or e.get("nombre_curso"))
 
     st.divider()
     st.subheader("Confirmar experiencia laboral relacionada con el cargo")
@@ -528,6 +539,8 @@ def main():
                     f'<strong>{_ETIQUETA_ESTADO.get(resultado_sistema.estado, resultado_sistema.estado)}</strong> — <em>{resultado_sistema.motivo}</em></div>',
                     unsafe_allow_html=True,
                 )
+                st.link_button("Verificar en el Ministerio del Trabajo ↗", _MINTRABAJO_CONSULTA_ALTURAS)
+                st.caption(f"Busca con la cédula {cedula.get('numero', '—')} antes de marcar válido o no válido.")
                 alturas_override = st.radio("¿Es válido el certificado de alturas al cierre de inscripción?", _OPCIONES_VALIDEZ, horizontal=True, key=f"alturas_val_{hash_}")
             with col_img:
                 _documento_clickeable(pdf_path, resultado, alturas.get("paginas", []))
@@ -552,7 +565,15 @@ def main():
     st.divider()
 
     laborales_confirmadas = [{**e, "relacionado": d} for e, d in zip(laborales, decisiones_relacionado_laboral)]
-    estudios_confirmados = [{**e, "relacionado": d} for e, d in zip(estudios, decisiones_relacionado_estudio)]
+    # Cada documento académico marcado "No es válido" queda excluido por completo — no
+    # cuenta para el nivel mínimo ni se guarda como confirmado. Los demás (colegio
+    # válido, cursos, técnico/tecnólogo/etc.) pasan con su decisión de "relacionado"
+    # si aplica.
+    estudios_confirmados = [
+        {**e, "relacionado": decisiones_relacionado_estudio[i]} if i in decisiones_relacionado_estudio else dict(e)
+        for i, e in enumerate(estudios)
+        if overrides_academicos.get(i) != "No es válido"
+    ]
 
     resultados_actualizados = {
         "formulario": validar_formulario(
@@ -561,7 +582,7 @@ def main():
             firma_verificada=firma_valor,
         ),
         "cedula": validar_cedula(cedula),
-        "estudio": _aplicar_override_manual(validar_constancia_estudio(estudios_confirmados), estudio_override),
+        "estudio": validar_constancia_estudio(estudios_confirmados),
         "laboral": validar_constancias_laborales(laborales_confirmadas, cfg),
         "alturas": _aplicar_override_manual(validar_certificado_alturas(alturas, cfg), alturas_override),
         "medica": _aplicar_override_manual(validar_evaluacion_medica(medica, cfg), medica_override),
@@ -625,11 +646,13 @@ def main():
                         "valor_corregido_humano": medica_override,
                         "corregido_por": revisado_por, "fecha_correccion": date.today().isoformat(),
                     })
-                if estudios_formales:
+                for i in indices_academicos:
+                    e = estudios[i]
+                    etiqueta_doc = e.get("titulo") or (e.get("nivel") or "—").capitalize()
                     filas_auditoria.append({
-                        "id_aspirante": id_aspirante, "campo": "validez_diplomas_estudio",
-                        "valor_extraido_ia": resultado["resultados_validacion"]["estudio"].estado,
-                        "valor_corregido_humano": estudio_override,
+                        "id_aspirante": id_aspirante, "campo": f"validez_diploma_estudio_{i}_{etiqueta_doc}",
+                        "valor_extraido_ia": "pendiente",
+                        "valor_corregido_humano": overrides_academicos.get(i, "Según el sistema"),
                         "corregido_por": revisado_por, "fecha_correccion": date.today().isoformat(),
                     })
                 for i, (exp, d) in enumerate(zip(laborales, decisiones_relacionado_laboral)):
