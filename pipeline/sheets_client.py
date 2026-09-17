@@ -11,6 +11,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 from pipeline.esquema_sheets import TODAS_LAS_HOJAS, claves, encabezados, fila_desde_dict
+from pipeline.sheets_estilos import aplicar_estilos_basicos, aplicar_estilos_maestro
 
 _SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
@@ -37,23 +38,36 @@ def abrir_spreadsheet(client: gspread.Client, spreadsheet_id: str) -> gspread.Sp
     return client.open_by_key(spreadsheet_id)
 
 
-def asegurar_hojas(spreadsheet: gspread.Spreadsheet, esquemas: dict = TODAS_LAS_HOJAS) -> dict:
+def asegurar_hojas(spreadsheet: gspread.Spreadsheet, esquemas: dict = TODAS_LAS_HOJAS, aplicar_estilos: bool = True) -> dict:
     """Crea cada pestaña que falte y escribe sus encabezados en la fila 1 si está vacía.
 
     Nunca borra ni reordena columnas existentes — si una hoja ya existe con datos,
-    se deja intacta (para no pisar trabajo de Personal Administrativo).
+    se deja intacta (para no pisar trabajo de Personal Administrativo). El estilo
+    (encabezado, ancho de columnas, y en Maestro el color verde/amarillo/rojo según
+    Estado_confirmado_por_humano) se aplica UNA sola vez, solo a una pestaña recién
+    creada — es formato condicional puro (una fórmula, nunca toca los valores de las
+    celdas), así que colorea automáticamente cualquier fila que se agregue después,
+    sin necesidad de volver a aplicarlo. `aplicar_estilos=False` es solo para pruebas
+    con hojas simuladas, que no soportan las llamadas de gspread_formatting.
     """
     hojas_existentes = {ws.title: ws for ws in spreadsheet.worksheets()}
     resultado = {}
 
     for nombre_hoja, esquema in esquemas.items():
         ws = hojas_existentes.get(nombre_hoja)
-        if ws is None:
+        recien_creada = ws is None
+        if recien_creada:
             ws = spreadsheet.add_worksheet(title=nombre_hoja, rows=_FILAS_INICIALES, cols=len(esquema) + _COLUMNAS_EXTRA)
 
         primera_fila = ws.row_values(1)
         if not primera_fila:
             ws.update("A1", [encabezados(esquema)])
+
+        if recien_creada and aplicar_estilos:
+            if nombre_hoja == "Maestro":
+                aplicar_estilos_maestro(ws, esquema)
+            else:
+                aplicar_estilos_basicos(ws, esquema)
 
         resultado[nombre_hoja] = ws
 

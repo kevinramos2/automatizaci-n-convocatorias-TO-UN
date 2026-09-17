@@ -170,7 +170,7 @@ def _inyectar_estilos(oscuro: bool):
             opacity: 0; margin: 0; padding: 0; border: none; cursor: pointer;
         }}
         div[class*="st-key-docclick_"]::after {{
-            content: "🔍 Ver todas las páginas"; position: absolute; left: 50%; bottom: 8px;
+            content: "🔍 Ampliar"; position: absolute; left: 50%; bottom: 8px;
             transform: translateX(-50%); background: rgba(0, 0, 0, 0.65); color: #fff;
             font-size: 0.72rem; padding: 3px 10px; border-radius: 999px;
             pointer-events: none; opacity: 0; transition: opacity 0.15s ease; z-index: 6;
@@ -194,21 +194,25 @@ def _pill_html(estado: str) -> str:
 
 
 @st.cache_data
-def _imagen_pagina(pdf_path: str, pagina: int, rotacion: int = 0) -> bytes:
-    return base64.standard_b64decode(pagina_a_imagen_base64(pdf_path, pagina, dpi=150, rotacion=rotacion))
+def _imagen_pagina(pdf_path: str, pagina: int, rotacion: int = 0, dpi: int = 150) -> bytes:
+    return base64.standard_b64decode(pagina_a_imagen_base64(pdf_path, pagina, dpi=dpi, rotacion=rotacion))
+
+
+_DPI_AMPLIADA = 220  # más nítida que la miniatura (150) — el popover es la vista de "zoom"
 
 
 def _documento_clickeable(pdf_path: str, resultado: dict, paginas: list[int], etiqueta: str | None = None) -> None:
-    """Muestra solo la primera página; si el documento tiene más, clic en la imagen
+    """Clic en la imagen (cualquier documento, de una página o de varias) la abre
 
-    despliega TODAS las páginas. Por dentro sigue siendo st.image + st.popover (nada
-    de HTML/base64 a mano): cada página se renderiza una sola vez, y las páginas del
-    popover solo se generan cuando el usuario lo abre — así no se duplican imágenes
-    ni se vuelve pesada la página. Un lightbox hecho con CSS puro (ancla + :target),
-    con imágenes en base64 incrustadas a mano, se probó antes y con expedientes
-    reales (muchos documentos, cada uno con varias páginas) se volvía demasiado
-    pesado y varias imágenes dejaban de renderizarse o de responder al clic.
-    "Clic en la imagen" aquí es solo CSS: el botón real del popover se hace
+    ampliada en un popover — si tiene más de una página, ahí se ven todas. Por
+    dentro sigue siendo st.image + st.popover (nada de HTML/base64 a mano): cada
+    página se renderiza una sola vez (cacheada por @st.cache_data), y el contenido
+    del popover solo se necesita cuando el usuario lo abre — así no se duplican
+    imágenes ni se vuelve pesada la página. Un lightbox hecho con CSS puro (ancla +
+    :target), con imágenes en base64 incrustadas a mano, se probó antes y con
+    expedientes reales (muchos documentos, cada uno con varias páginas) se volvía
+    demasiado pesado y varias imágenes dejaban de renderizarse o de responder al
+    clic. "Clic en la imagen" aquí es solo CSS: el botón real del popover se hace
     invisible y se estira sobre la miniatura con position:absolute (ver
     _inyectar_estilos) — el clic lo sigue manejando Streamlit, no JavaScript propio.
     """
@@ -216,20 +220,18 @@ def _documento_clickeable(pdf_path: str, resultado: dict, paginas: list[int], et
         return
 
     primera = paginas[0]
-    if len(paginas) == 1:
-        st.image(_imagen_pagina(pdf_path, primera, _rotacion_de_pagina(resultado, primera)))
-        if etiqueta:
-            st.caption(etiqueta)
-        return
-
     clave = f"docclick_{resultado.get('_hash', '')}_{primera}"
+    etiqueta_boton = f"Ver las {len(paginas)} páginas" if len(paginas) > 1 else "Ver imagen ampliada"
     with st.container(key=clave):
         st.image(_imagen_pagina(pdf_path, primera, _rotacion_de_pagina(resultado, primera)))
         if etiqueta:
             st.caption(etiqueta)
-        with st.popover(f"Ver las {len(paginas)} páginas"):
+        with st.popover(etiqueta_boton):
             for p in paginas:
-                st.image(_imagen_pagina(pdf_path, p, _rotacion_de_pagina(resultado, p)), caption=f"Página {p}")
+                st.image(
+                    _imagen_pagina(pdf_path, p, _rotacion_de_pagina(resultado, p), dpi=_DPI_AMPLIADA),
+                    caption=f"Página {p}" if len(paginas) > 1 else None,
+                )
 
 
 def _rotacion_de_pagina(resultado: dict, pagina: int) -> int:
@@ -273,6 +275,10 @@ _OPCIONES_VALIDEZ = ["Según el sistema", "Sí, válido", "No es válido"]
 # los cursos, y de todas formas siguen contando automáticamente para el nivel mínimo.
 _NIVELES_ESCOLARES = {"primaria", "secundaria"}
 _MINTRABAJO_CONSULTA_ALTURAS = "https://app2.mintrabajo.gov.co/CentrosEntrenamiento/consulta_ext.aspx"
+
+
+def _indice_opcion(opciones: list[str], valor: str | None, defecto: int = 0) -> int:
+    return opciones.index(valor) if valor in opciones else defecto
 
 
 def _aplicar_override_manual(automatico: ResultadoRegla, eleccion: str) -> ResultadoRegla:
@@ -417,10 +423,15 @@ def main():
     laborales = resultado["laborales"]
     alturas = resultado["alturas"]
     medica = resultado["medica"]
+    # Respuestas de una revisión humana ya guardada (si este expediente ya se revisó
+    # antes) — se usan como valor por defecto de cada control de abajo, para que
+    # entrar y salir de un aspirante (o cambiar de "Pendientes" a "Admitidos") no
+    # borre lo que ya se confirmó.
+    guardado = resultado.get("revision_humana") or {}
 
     st.title("Panel de revisión — Proceso de selección TO 2026")
 
-    estado_decision = resultado["decision"]["estado_sugerido"]
+    estado_decision = resultado.get("estado_confirmado_por_humano") or resultado["decision"]["estado_sugerido"]
     estado_clave = {"ADMITIDO": "cumple", "NO ADMITIDO": "no_cumple"}.get(estado_decision, "requiere_revision_manual")
     st.markdown(
         f"""
@@ -477,9 +488,11 @@ def main():
         st.caption("Cédula")
         _documento_clickeable(pdf_path, resultado, paginas_cedula)
 
+    _opciones_firma = ["Pendiente", "Sí coincide", "No coincide"]
     firma_verificada = st.radio(
         "¿La firma del formulario coincide con la de la cédula?",
-        options=["Pendiente", "Sí coincide", "No coincide"], horizontal=True, key=f"firma_verificada_{hash_}",
+        options=_opciones_firma, index=_indice_opcion(_opciones_firma, guardado.get("firma_verificada")),
+        horizontal=True, key=f"firma_verificada_{hash_}",
     )
     firma_valor = {"Pendiente": None, "Sí coincide": True, "No coincide": False}[firma_verificada]
 
@@ -503,8 +516,10 @@ def main():
                 with col_txt:
                     st.markdown(f"**{e.get('titulo') or (e.get('nivel') or '—').capitalize()}** — *{e.get('institucion', '—')}*")
                     st.caption(e.get("fecha_terminacion") or e.get("fecha_fin") or "")
+                    valor_guardado = (guardado.get("overrides_academicos") or {}).get(str(i))
                     overrides_academicos[i] = st.radio(
-                        "¿Es válido este documento?", _OPCIONES_VALIDEZ, horizontal=True, key=f"estudio_val_{hash_}_{i}",
+                        "¿Es válido este documento?", _OPCIONES_VALIDEZ, index=_indice_opcion(_OPCIONES_VALIDEZ, valor_guardado),
+                        horizontal=True, key=f"estudio_val_{hash_}_{i}",
                     )
                 with col_img:
                     _documento_clickeable(pdf_path, resultado, e.get("paginas", []), etiqueta=e.get("titulo") or e.get("nivel"))
@@ -537,7 +552,9 @@ def main():
                         unsafe_allow_html=True,
                     )
                 opciones = ["PENDIENTE", "SI", "NO"]
-                indice_defecto = opciones.index(sugerido) if sugerido in opciones else 0
+                # Prioridad: decisión humana ya guardada > sugerencia de la IA > pendiente.
+                valor_guardado = (guardado.get("decisiones_relacionado_estudio") or {}).get(str(i))
+                indice_defecto = _indice_opcion(opciones, valor_guardado, _indice_opcion(opciones, sugerido))
                 eleccion = st.radio("¿Relacionado con el cargo?", opciones, index=indice_defecto, horizontal=True, key=f"estudio_rel_{hash_}_{i}")
                 decisiones_relacionado_estudio[i] = eleccion
             with col_img:
@@ -563,7 +580,8 @@ def main():
                         unsafe_allow_html=True,
                     )
                 opciones = ["PENDIENTE", "SI", "NO"]
-                indice_defecto = opciones.index(sugerido) if sugerido in opciones else 0
+                valor_guardado = (guardado.get("decisiones_relacionado_laboral") or {}).get(str(i))
+                indice_defecto = _indice_opcion(opciones, valor_guardado, _indice_opcion(opciones, sugerido))
                 eleccion = st.radio("¿Relacionada con el cargo?", opciones, index=indice_defecto, horizontal=True, key=f"laboral_rel_{hash_}_{i}")
                 decisiones_relacionado_laboral.append(eleccion)
             with col_img:
@@ -588,7 +606,11 @@ def main():
                 )
                 st.link_button("Verificar en el Ministerio del Trabajo ↗", _MINTRABAJO_CONSULTA_ALTURAS)
                 st.caption(f"Busca con la cédula {cedula.get('numero', '—')} antes de marcar válido o no válido.")
-                alturas_override = st.radio("¿Es válido el certificado de alturas al cierre de inscripción?", _OPCIONES_VALIDEZ, horizontal=True, key=f"alturas_val_{hash_}")
+                alturas_override = st.radio(
+                    "¿Es válido el certificado de alturas al cierre de inscripción?", _OPCIONES_VALIDEZ,
+                    index=_indice_opcion(_OPCIONES_VALIDEZ, guardado.get("alturas_override")),
+                    horizontal=True, key=f"alturas_val_{hash_}",
+                )
             with col_img:
                 _documento_clickeable(pdf_path, resultado, alturas.get("paginas", []))
 
@@ -605,7 +627,11 @@ def main():
                     f'<strong>{_ETIQUETA_ESTADO.get(resultado_sistema.estado, resultado_sistema.estado)}</strong> — <em>{resultado_sistema.motivo}</em></div>',
                     unsafe_allow_html=True,
                 )
-                medica_override = st.radio("¿Es válida la evaluación médica?", _OPCIONES_VALIDEZ, horizontal=True, key=f"medica_val_{hash_}")
+                medica_override = st.radio(
+                    "¿Es válida la evaluación médica?", _OPCIONES_VALIDEZ,
+                    index=_indice_opcion(_OPCIONES_VALIDEZ, guardado.get("medica_override")),
+                    horizontal=True, key=f"medica_val_{hash_}",
+                )
             with col_img:
                 _documento_clickeable(pdf_path, resultado, medica.get("paginas", []))
 
@@ -647,7 +673,7 @@ def main():
     decision_final = estado_final in ("ADMITIDO", "NO ADMITIDO")
     if not decision_final:
         st.caption("Todavía hay ítems pendientes de confirmar arriba (firma, relacionado, alturas, médica) — resuélvelos para poder guardar una decisión final.")
-    revisado_por = st.text_input("Tu nombre (queda registrado en la auditoría)")
+    revisado_por = st.text_input("Tu nombre (queda registrado en la auditoría)", value=guardado.get("revisado_por", ""))
     guardar = st.button("Guardar revisión en Google Sheets", type="primary", disabled=not revisado_por or not decision_final)
 
     if guardar:
@@ -714,10 +740,23 @@ def main():
                 # separar pendientes de admitidos/no admitidos, sin depender de leer
                 # Sheets. Se guarda aparte de `resultado` (que ya trae claves propias
                 # del panel, como "documentos") para no corromper la caché en disco.
+                # "revision_humana" guarda cada respuesta individual (no solo el
+                # resultado final) para que al volver a este aspirante — desde
+                # "Admitidos"/"No admitidos", no solo "Pendientes" — los controles
+                # se restauren tal como quedaron, en vez de resetearse.
                 resultado_cache = cargar_resultado(hash_)
                 resultado_cache["estado_confirmado_por_humano"] = decision_actualizada["estado_sugerido"]
                 resultado_cache["revisado_por"] = revisado_por
                 resultado_cache["fecha_revision"] = date.today().isoformat()
+                resultado_cache["revision_humana"] = {
+                    "firma_verificada": firma_verificada,
+                    "overrides_academicos": {str(i): v for i, v in overrides_academicos.items()},
+                    "decisiones_relacionado_estudio": {str(i): v for i, v in decisiones_relacionado_estudio.items()},
+                    "decisiones_relacionado_laboral": {str(i): d for i, d in enumerate(decisiones_relacionado_laboral)},
+                    "alturas_override": alturas_override,
+                    "medica_override": medica_override,
+                    "revisado_por": revisado_por,
+                }
                 guardar_resultado(hash_, resultado_cache)
 
             # Independientemente de la decisión (ADMITIDO/NO ADMITIDO), se refresca y

@@ -74,7 +74,9 @@ class _SpreadsheetFalso:
 
 def test_asegurar_hojas_crea_las_que_faltan_con_encabezados():
     ss = _SpreadsheetFalso()
-    hojas = asegurar_hojas(ss, {"Maestro": MAESTRO})
+    # aplicar_estilos=False: las hojas simuladas no soportan gspread_formatting
+    # (eso se prueba por separado, contra Sheets real, no con estos fakes).
+    hojas = asegurar_hojas(ss, {"Maestro": MAESTRO}, aplicar_estilos=False)
     assert "Maestro" in hojas
     assert hojas["Maestro"].row_values(1)[:4] == ["Recibió", "Fecha Inscripción", "Nombre Aspirante", "ID Aspirante"]
 
