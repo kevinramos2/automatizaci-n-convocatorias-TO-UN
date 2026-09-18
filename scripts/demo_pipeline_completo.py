@@ -50,8 +50,8 @@ def main():
 
     resultados = {}
 
-    # Item 1: formulario de inscripción. La firma NUNCA se verifica automáticamente
-    # (Sección 3 del plan) — firma_verificada=None dejará este ítem en REQUIERE_REVISION.
+    # Item 1: formulario de inscripción. La entrega del formulario y la cédula la confirma
+    # un humano — entrega_confirmada=None dejará este ítem en REQUIERE_REVISION.
     formulario = por_tipo(extracciones, "formulario_inscripcion")[0]["datos"]
     cedula_datos = por_tipo(extracciones, "cedula")[0]["datos"]
     resultados["formulario"] = validar_formulario(
@@ -63,7 +63,7 @@ def main():
             "direccion": formulario["direccion"],
         },
         {"nombre": cedula_datos["nombre"], "numero": cedula_datos["numero"]},
-        firma_verificada=None,
+        entrega_confirmada=None,
     )
 
     # Item 2: cédula

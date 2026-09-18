@@ -37,7 +37,7 @@ def _resultado_base() -> dict:
         "alturas": {"aportado": True, "fecha_vencimiento": "2027-01-01", "entidad_emisora": "X"},
         "medica": {"aportado": True, "concepto_aptitud_alturas": True, "fecha_expedicion": "2026-09-10", "entidad_emisora": "Y"},
         "resultados_validacion": {
-            "formulario": ResultadoRegla(REQUIERE_REVISION, "pendiente firma"),
+            "formulario": ResultadoRegla(REQUIERE_REVISION, "pendiente entrega"),
             "cedula": ResultadoRegla(CUMPLE, "ok"),
             "estudio": ResultadoRegla(CUMPLE, "ok"),
             "laboral": ResultadoRegla(REQUIERE_REVISION, "pendiente relacionado"),
@@ -100,7 +100,7 @@ def test_revision_guarda_cuando_queda_todo_confirmado():
          patch.dict("os.environ", {"GOOGLE_SHEETS_SPREADSHEET_ID": "fake-id"}):
         r = client.post(f"/api/expedientes/{_HASH}/revision", json={
             "revisado_por": "Tester",
-            "firma_verificada": "Sí coincide",
+            "entrega_verificada": "Sí, entregó ambos",
             "overrides_academicos": {"0": "Sí, válido"},
             "decisiones_relacionado_laboral": {"0": "SI"},
             "alturas_override": "Según el sistema",
@@ -118,15 +118,15 @@ def test_revision_guarda_cuando_queda_todo_confirmado():
     # La caché local quedó con "revision_humana" — no solo el estado final.
     cache_guardada = guardados["ultimo"]
     assert cache_guardada["estado_confirmado_por_humano"] == "ADMITIDO"
-    assert cache_guardada["revision_humana"]["firma_verificada"] == "Sí coincide"
+    assert cache_guardada["revision_humana"]["entrega_verificada"] == "Sí, entregó ambos"
     assert cache_guardada["revision_humana"]["overrides_academicos"] == {"0": "Sí, válido"}
     assert cache_guardada["revision_humana"]["revisado_por"] == "Tester"
 
 
-def test_revision_valida_estado_firma():
+def test_revision_valida_estado_entrega():
     with patch.object(api_main, "cargar_resultado", return_value=_resultado_base()):
         r = client.post(f"/api/expedientes/{_HASH}/revision", json={
-            "revisado_por": "Tester", "firma_verificada": "valor-invalido",
+            "revisado_por": "Tester", "entrega_verificada": "valor-invalido",
         })
     assert r.status_code == 400
 

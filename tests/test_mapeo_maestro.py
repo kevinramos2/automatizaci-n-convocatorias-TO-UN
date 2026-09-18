@@ -29,9 +29,9 @@ ALTURAS = {"aportado": True, "entidad_emisora": "SENA", "fecha_expedicion": "202
 MEDICA = {"aportado": True, "entidad_emisora": "IPS X", "fecha_expedicion": "2026-09-01", "concepto_aptitud_alturas": True}
 
 
-def _resultados_y_decision(firma_verificada=True):
+def _resultados_y_decision(entrega_confirmada=True):
     resultados = {
-        "formulario": validar_formulario(FORMULARIO, CEDULA, firma_verificada=firma_verificada),
+        "formulario": validar_formulario(FORMULARIO, CEDULA, entrega_confirmada=entrega_confirmada),
         "cedula": validar_cedula(CEDULA),
         "estudio": validar_constancia_estudio(ESTUDIOS),
         "laboral": validar_constancias_laborales(LABORALES, CFG),

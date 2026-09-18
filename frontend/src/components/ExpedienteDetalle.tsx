@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Expediente } from '../api/types'
 import { ErrorAPI } from '../api/client'
 import { useGuardarRevision } from '../hooks/useExpedientes'
-import { OPCIONES_FIRMA, OPCIONES_RELACIONADO, OPCIONES_VALIDEZ, useRevisionState } from '../hooks/useRevisionState'
+import { OPCIONES_ENTREGA, OPCIONES_RELACIONADO, OPCIONES_VALIDEZ, useRevisionState } from '../hooks/useRevisionState'
 import { AiBox, ETIQUETA_ESTADO, EstadoBadge, EstadoPill } from './Estado'
 import { RadioGroup } from './RadioGroup'
 import { DocumentoClickeable } from './DocumentoClickeable'
@@ -140,20 +140,21 @@ export function ExpedienteDetalle({
       {/* Firma */}
       <section>
         <h2 className="mb-1 text-xl font-bold" style={{ color: 'var(--to-ink)' }}>
-          Confirmar firma del formulario
+          Confirmar formulario de inscripción y cédula
         </h2>
         <p className="mb-3 text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
-          Compara la firma de abajo (formulario) contra la firma de la cédula. Nunca se verifica automáticamente.
+          Según la lista de chequeo: confirma que el aspirante entregó el formulario de inscripción y la fotocopia de la
+          cédula. Nunca se confirma automáticamente.
         </p>
         <div className="grid grid-cols-2 gap-4">
           <div>
             {paginasDe(expediente, 'formulario_inscripcion').length > 1 ? (
               <p className="mb-1 text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
-                Formulario — clic en la imagen para ver las {paginasDe(expediente, 'formulario_inscripcion').length} páginas, incluida la firma
+                Formulario de inscripción — clic en la imagen para ver las {paginasDe(expediente, 'formulario_inscripcion').length} páginas
               </p>
             ) : (
               <p className="mb-1 text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
-                Formulario — incluye la firma
+                Formulario de inscripción
               </p>
             )}
             <DocumentoClickeable hash={hash} paginas={paginasDe(expediente, 'formulario_inscripcion')} />
@@ -164,11 +165,11 @@ export function ExpedienteDetalle({
           </div>
         </div>
         <RadioGroup
-          name="firma"
-          label="¿La firma del formulario coincide con la de la cédula?"
-          opciones={OPCIONES_FIRMA}
-          valor={estado.firma_verificada}
-          onChange={(v) => set('firma_verificada', v)}
+          name="entrega"
+          label="¿Entregó el formulario de inscripción y la fotocopia de la cédula?"
+          opciones={OPCIONES_ENTREGA}
+          valor={estado.entrega_verificada}
+          onChange={(v) => set('entrega_verificada', v)}
         />
       </section>
 
@@ -398,7 +399,7 @@ export function ExpedienteDetalle({
         </h3>
         {!decisionFinal && (
           <p className="mb-2 text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
-            Todavía hay ítems pendientes de confirmar arriba (firma, relacionado, alturas, médica) — resuélvelos
+            Todavía hay ítems pendientes de confirmar arriba (entrega, relacionado, alturas, médica) — resuélvelos
             para poder guardar una decisión final.
           </p>
         )}

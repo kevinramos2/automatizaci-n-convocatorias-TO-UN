@@ -7,7 +7,7 @@ from pydantic import BaseModel
 class RevisionInput(BaseModel):
     """Lo que React manda al guardar una revisión — un campo por cada control que
 
-    hoy existe en app_revision.py (firma, cada documento académico, cada
+    hoy existe en app_revision.py (entrega de formulario y cédula, cada documento académico, cada
     relacionado de estudio/laboral, alturas, médica). Los diccionarios usan el
     índice del ítem (como string, por json) como llave, igual que
     "overrides_academicos"/"decisiones_relacionado_estudio" en la caché local.
@@ -19,7 +19,7 @@ class RevisionInput(BaseModel):
     GUARDAR de verdad se valida en el endpoint /revision, no acá.
     """
     revisado_por: str = ""
-    firma_verificada: str = "Pendiente"  # "Pendiente" | "Sí coincide" | "No coincide"
+    entrega_verificada: str = "Pendiente"  # "Pendiente" | "Sí, entregó ambos" | "No, falta alguno"
     overrides_academicos: dict[str, str] = {}  # índice -> "Según el sistema"|"Sí, válido"|"No es válido"
     decisiones_relacionado_estudio: dict[str, str] = {}  # índice -> "PENDIENTE"|"SI"|"NO"
     decisiones_relacionado_laboral: dict[str, str] = {}  # índice -> "PENDIENTE"|"SI"|"NO"

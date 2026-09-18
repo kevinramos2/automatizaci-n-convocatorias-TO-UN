@@ -72,6 +72,12 @@ _CONVOCATORIAS = {
 # como "información académica"; técnico/tecnólogo/etc. y cursos van a "relacionada".
 _NIVELES_ESCOLARES = {"primaria", "secundaria"}
 
+# Confirmación humana de que el aspirante entregó el formulario y la fotocopia de la
+# cédula (lista de chequeo). Reemplaza a la antigua comparación de firmas, que en la
+# práctica Personal Administrativo no valida.
+_OPCIONES_ENTREGA = {"Pendiente": None, "Sí, entregó ambos": True, "No, falta alguno": False}
+_ENTREGA_ANTIGUA = {"Sí coincide": "Sí, entregó ambos", "No coincide": "No, falta alguno", "Pendiente": "Pendiente"}
+
 
 def _cargar_cfg() -> dict:
     return json.load(open(RAIZ / "config" / "parametros.json", encoding="utf-8"))
@@ -124,10 +130,9 @@ def _recalcular(resultado: dict, cfg: dict, datos: RevisionInput) -> dict:
         i for i, e in enumerate(estudios) if (e.get("nivel") or "").lower() in _NIVELES_ESCOLARES
     ]
 
-    opciones_firma = {"Pendiente": None, "Sí coincide": True, "No coincide": False}
-    if datos.firma_verificada not in opciones_firma:
-        raise HTTPException(400, f"firma_verificada inválida: {datos.firma_verificada}")
-    firma_valor = opciones_firma[datos.firma_verificada]
+    if datos.entrega_verificada not in _OPCIONES_ENTREGA:
+        raise HTTPException(400, f"entrega_verificada inválida: {datos.entrega_verificada}")
+    entrega_valor = _OPCIONES_ENTREGA[datos.entrega_verificada]
 
     decisiones_relacionado_laboral = [
         datos.decisiones_relacionado_laboral.get(str(i), "PENDIENTE") for i in range(len(laborales))
@@ -147,7 +152,7 @@ def _recalcular(resultado: dict, cfg: dict, datos: RevisionInput) -> dict:
         "formulario": validar_formulario(
             {k: formulario.get(k) for k in ("nombre", "cedula", "correo", "celular", "direccion")},
             {"nombre": cedula.get("nombre"), "numero": cedula.get("numero")},
-            firma_verificada=firma_valor,
+            entrega_confirmada=entrega_valor,
         ),
         "cedula": validar_cedula(cedula),
         "estudio": validar_constancia_estudio(estudios_confirmados),
@@ -177,6 +182,19 @@ def _resultado_serializable(hash_: str) -> dict:
     resultado = _cargar_o_404(hash_)
     resultado["resultados_validacion"] = {k: asdict(v) for k, v in resultado["resultados_validacion"].items()}
     resultado["documentos"] = _normalizar_documentos(resultado.pop("documentos_extraidos", []))
+
+    # Revisiones guardadas antes del cambio usaban "firma_verificada" (Sí coincide/...).
+    revision = resultado.get("revision_humana")
+    if revision and "entrega_verificada" not in revision and "firma_verificada" in revision:
+        revision["entrega_verificada"] = _ENTREGA_ANTIGUA.get(revision["firma_verificada"], "Pendiente")
+
+    # El ítem 1 se guardó al procesar con el texto de "verificar firma"; se vuelve a
+    # calcular (función pura, sin costo) para mostrar el texto actual.
+    f, c = resultado["formulario"], resultado["cedula"]
+    resultado["resultados_validacion"]["formulario"] = asdict(validar_formulario(
+        {k: f.get(k) for k in ("nombre", "cedula", "correo", "celular", "direccion")},
+        {"nombre": c.get("nombre"), "numero": c.get("numero")},
+    ))
 
     estudios = resultado.get("estudios", [])
     resultado["indices_academicos"] = [
@@ -298,7 +316,7 @@ def guardar_revision(hash_: str, datos: RevisionInput):
     if estado_final not in ("ADMITIDO", "NO ADMITIDO"):
         raise HTTPException(
             400,
-            "Todavía hay ítems pendientes de confirmar (firma, relacionado, alturas, médica) — "
+            "Todavía hay ítems pendientes de confirmar (entrega, relacionado, alturas, médica) — "
             "no se puede guardar una decisión final.",
         )
 
@@ -324,8 +342,8 @@ def guardar_revision(hash_: str, datos: RevisionInput):
         upsert_fila(hojas["Maestro"], MAESTRO, "id_aspirante", id_aspirante, fila_maestro)
 
         filas_auditoria = [{
-            "id_aspirante": id_aspirante, "campo": "firma_verificada",
-            "valor_extraido_ia": "pendiente", "valor_corregido_humano": datos.firma_verificada,
+            "id_aspirante": id_aspirante, "campo": "entrega_formulario_y_cedula",
+            "valor_extraido_ia": "pendiente", "valor_corregido_humano": datos.entrega_verificada,
             "corregido_por": datos.revisado_por, "fecha_correccion": date.today().isoformat(),
         }]
         if alturas and alturas.get("aportado"):
@@ -367,7 +385,7 @@ def guardar_revision(hash_: str, datos: RevisionInput):
         resultado_cache["revisado_por"] = datos.revisado_por
         resultado_cache["fecha_revision"] = date.today().isoformat()
         resultado_cache["revision_humana"] = {
-            "firma_verificada": datos.firma_verificada,
+            "entrega_verificada": datos.entrega_verificada,
             "overrides_academicos": datos.overrides_academicos,
             "decisiones_relacionado_estudio": datos.decisiones_relacionado_estudio,
             "decisiones_relacionado_laboral": {str(i): d for i, d in enumerate(decisiones_relacionado_laboral)},

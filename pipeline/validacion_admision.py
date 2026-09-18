@@ -39,8 +39,14 @@ def _normalizar_nombre(nombre: str) -> str:
     return " ".join(sorted(palabras))
 
 
-def validar_formulario(formulario: dict, cedula_escaneada: dict, firma_verificada: bool | None = None) -> ResultadoRegla:
-    """Ítem 1: formulario completo y coincidente con la cédula. La firma es siempre chequeo manual (Sección 3)."""
+def validar_formulario(formulario: dict, cedula_escaneada: dict, entrega_confirmada: bool | None = None) -> ResultadoRegla:
+    """Ítem 1: formulario completo y coincidente con la cédula.
+
+    `entrega_confirmada` es la confirmación humana de que el aspirante entregó el
+    formulario de inscripción y la fotocopia de la cédula (los dos primeros
+    documentos de la lista de chequeo). La firma NO se compara: en la práctica
+    Personal Administrativo no valida que coincida con la de la cédula.
+    """
     campos_obligatorios = ["nombre", "cedula", "correo", "celular", "direccion"]
     faltantes = [c for c in campos_obligatorios if not formulario.get(c)]
     if faltantes:
@@ -52,11 +58,11 @@ def validar_formulario(formulario: dict, cedula_escaneada: dict, firma_verificad
     if cedula_escaneada.get("nombre") and _normalizar_nombre(formulario["nombre"]) != _normalizar_nombre(cedula_escaneada["nombre"]):
         return ResultadoRegla(REQUIERE_REVISION, "El nombre del formulario no coincide con la cédula escaneada")
 
-    if firma_verificada is True:
-        return ResultadoRegla(CUMPLE, "Formulario completo, datos coinciden con la cédula, firma verificada")
-    if firma_verificada is False:
-        return ResultadoRegla(NO_CUMPLE, "La firma del formulario no coincide con la firma de la cédula")
-    return ResultadoRegla(REQUIERE_REVISION, "Formulario completo y coincidente; pendiente verificación manual de la firma")
+    if entrega_confirmada is True:
+        return ResultadoRegla(CUMPLE, "Formulario completo, datos coinciden con la cédula, entrega del formulario y la cédula confirmada")
+    if entrega_confirmada is False:
+        return ResultadoRegla(NO_CUMPLE, "No se entregó completo el formulario de inscripción y/o la fotocopia de la cédula")
+    return ResultadoRegla(REQUIERE_REVISION, "Formulario completo y coincidente; pendiente confirmar la entrega del formulario y la cédula")
 
 
 def validar_cedula(cedula_escaneada: dict) -> ResultadoRegla:

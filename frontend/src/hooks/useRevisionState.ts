@@ -3,7 +3,7 @@ import { previsualizarRevision } from '../api/client'
 import type { Expediente, RevisionInput, RevisionPreview } from '../api/types'
 
 export const OPCIONES_VALIDEZ = ['Según el sistema', 'Sí, válido', 'No es válido']
-export const OPCIONES_FIRMA = ['Pendiente', 'Sí coincide', 'No coincide']
+export const OPCIONES_ENTREGA = ['Pendiente', 'Sí, entregó ambos', 'No, falta alguno']
 export const OPCIONES_RELACIONADO = ['PENDIENTE', 'SI', 'NO']
 
 function sugeridoOPendiente(sugerido: string | null) {
@@ -32,7 +32,7 @@ function estadoInicial(expediente: Expediente): RevisionInput {
 
   return {
     revisado_por: g?.revisado_por ?? '',
-    firma_verificada: g?.firma_verificada ?? 'Pendiente',
+    entrega_verificada: g?.entrega_verificada ?? 'Pendiente',
     overrides_academicos: g?.overrides_academicos ?? {},
     decisiones_relacionado_estudio: decisionesEstudio,
     decisiones_relacionado_laboral: decisionesLaboral,

@@ -2,7 +2,7 @@
 
 Permite elegir la convocatoria (TO-01/TO-02), adjuntar el expediente (PDF) de un
 aspirante, procesarlo con la API de Claude, y revisar/confirmar los ítems que
-el sistema nunca decide solo (firma, relacionado con el cargo) antes de
+el sistema nunca decide solo (entrega de formulario y cédula, relacionado con el cargo) antes de
 guardar en Google Sheets. Cada expediente se procesa una sola vez — se cachea en
 disco por hash del archivo para no volver a cobrar la API en cada recarga.
 
@@ -473,28 +473,28 @@ def main():
         )
 
     st.divider()
-    st.subheader("Confirmar firma del formulario")
-    st.caption("Compara la firma de abajo (formulario) contra la firma de la cédula. Nunca se verifica automáticamente.")
+    st.subheader("Confirmar formulario de inscripción y cédula")
+    st.caption("Según la lista de chequeo: confirma que el aspirante entregó el formulario de inscripción y la fotocopia de la cédula. Nunca se confirma automáticamente.")
     col_firma_1, col_firma_2 = st.columns(2)
     paginas_formulario = _paginas_de(documentos, "formulario_inscripcion")
     paginas_cedula = _paginas_de(documentos, "cedula")
     with col_firma_1:
         if len(paginas_formulario) > 1:
-            st.caption(f"Formulario — clic en la imagen para ver las {len(paginas_formulario)} páginas, incluida la firma")
+            st.caption(f"Formulario de inscripción — clic en la imagen para ver las {len(paginas_formulario)} páginas")
         else:
-            st.caption("Formulario — incluye la firma")
+            st.caption("Formulario de inscripción")
         _documento_clickeable(pdf_path, resultado, paginas_formulario)
     with col_firma_2:
         st.caption("Cédula")
         _documento_clickeable(pdf_path, resultado, paginas_cedula)
 
-    _opciones_firma = ["Pendiente", "Sí coincide", "No coincide"]
-    firma_verificada = st.radio(
-        "¿La firma del formulario coincide con la de la cédula?",
-        options=_opciones_firma, index=_indice_opcion(_opciones_firma, guardado.get("firma_verificada")),
-        horizontal=True, key=f"firma_verificada_{hash_}",
+    _opciones_entrega = ["Pendiente", "Sí, entregó ambos", "No, falta alguno"]
+    entrega_verificada = st.radio(
+        "¿Entregó el formulario de inscripción y la fotocopia de la cédula?",
+        options=_opciones_entrega, index=_indice_opcion(_opciones_entrega, guardado.get("entrega_verificada")),
+        horizontal=True, key=f"entrega_verificada_{hash_}",
     )
-    firma_valor = {"Pendiente": None, "Sí coincide": True, "No coincide": False}[firma_verificada]
+    entrega_valor = {"Pendiente": None, "Sí, entregó ambos": True, "No, falta alguno": False}[entrega_verificada]
 
     st.divider()
     st.subheader("Confirmar información académica")
@@ -652,7 +652,7 @@ def main():
         "formulario": validar_formulario(
             {k: formulario.get(k) for k in ("nombre", "cedula", "correo", "celular", "direccion")},
             {"nombre": cedula.get("nombre"), "numero": cedula.get("numero")},
-            firma_verificada=firma_valor,
+            entrega_confirmada=entrega_valor,
         ),
         "cedula": validar_cedula(cedula),
         "estudio": validar_constancia_estudio(estudios_confirmados),
@@ -672,7 +672,7 @@ def main():
     st.subheader("Guardar revisión")
     decision_final = estado_final in ("ADMITIDO", "NO ADMITIDO")
     if not decision_final:
-        st.caption("Todavía hay ítems pendientes de confirmar arriba (firma, relacionado, alturas, médica) — resuélvelos para poder guardar una decisión final.")
+        st.caption("Todavía hay ítems pendientes de confirmar arriba (entrega, relacionado, alturas, médica) — resuélvelos para poder guardar una decisión final.")
     revisado_por = st.text_input("Tu nombre (queda registrado en la auditoría)", value=guardado.get("revisado_por", ""))
     guardar = st.button("Guardar revisión en Google Sheets", type="primary", disabled=not revisado_por or not decision_final)
 
@@ -701,8 +701,8 @@ def main():
                 upsert_fila(hojas["Maestro"], MAESTRO, "id_aspirante", id_aspirante, fila_maestro)
 
                 filas_auditoria = [{
-                    "id_aspirante": id_aspirante, "campo": "firma_verificada",
-                    "valor_extraido_ia": "pendiente", "valor_corregido_humano": firma_verificada,
+                    "id_aspirante": id_aspirante, "campo": "entrega_formulario_y_cedula",
+                    "valor_extraido_ia": "pendiente", "valor_corregido_humano": entrega_verificada,
                     "corregido_por": revisado_por, "fecha_correccion": date.today().isoformat(),
                 }]
                 if alturas and alturas.get("aportado"):
@@ -749,7 +749,7 @@ def main():
                 resultado_cache["revisado_por"] = revisado_por
                 resultado_cache["fecha_revision"] = date.today().isoformat()
                 resultado_cache["revision_humana"] = {
-                    "firma_verificada": firma_verificada,
+                    "entrega_verificada": entrega_verificada,
                     "overrides_academicos": {str(i): v for i, v in overrides_academicos.items()},
                     "decisiones_relacionado_estudio": {str(i): v for i, v in decisiones_relacionado_estudio.items()},
                     "decisiones_relacionado_laboral": {str(i): d for i, d in enumerate(decisiones_relacionado_laboral)},

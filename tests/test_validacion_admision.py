@@ -23,7 +23,7 @@ CFG = json.load(open(Path(__file__).parent.parent / "config" / "parametros.json"
 # fecha_cierre_inscripcion = 2026-09-18, ventana evaluación médica = 30 días => 2026-08-19 a 2026-09-18
 
 
-def test_formulario_completo_pendiente_firma_por_defecto():
+def test_formulario_completo_pendiente_entrega_por_defecto():
     r = validar_formulario(
         {"nombre": "Juan Perez", "cedula": "123", "correo": "a@b.com", "celular": "300", "direccion": "Calle 1"},
         {"nombre": "Juan Perez", "numero": "123"},
@@ -39,11 +39,11 @@ def test_formulario_incompleto_no_cumple():
 def test_formulario_nombre_en_orden_distinto_y_sin_tilde_no_marca_inconsistencia():
     # Caso real: cédula imprime "APELLIDOS NOMBRES", formulario se llena "NOMBRES APELLIDOS",
     # y una de las dos fuentes puede traer o no tildes. Mismo nombre, no debe marcar REQUIERE_REVISION
-    # por esta causa (queda pendiente igual por la firma, pero con el motivo correcto).
+    # por esta causa (queda pendiente igual por la entrega, pero con el motivo correcto).
     r = validar_formulario(
         {"nombre": "Andrés Felipe Arroyave Rondon", "cedula": "1035870469", "correo": "a@b.com", "celular": "300", "direccion": "Calle 1"},
         {"nombre": "ARROYAVE RONDON ANDRES FELIPE", "numero": "1035870469"},
-        firma_verificada=True,
+        entrega_confirmada=True,
     )
     assert r.estado == CUMPLE
     assert "no coincide" not in r.motivo
@@ -57,11 +57,11 @@ def test_formulario_cedula_no_coincide_requiere_revision():
     assert r.estado == REQUIERE_REVISION
 
 
-def test_formulario_firma_confirmada_cumple():
+def test_formulario_entrega_confirmada_cumple():
     r = validar_formulario(
         {"nombre": "Juan Perez", "cedula": "123", "correo": "a@b.com", "celular": "300", "direccion": "Calle 1"},
         {"nombre": "Juan Perez", "numero": "123"},
-        firma_verificada=True,
+        entrega_confirmada=True,
     )
     assert r.estado == CUMPLE
 
@@ -185,7 +185,7 @@ def test_evaluacion_medica_sin_aptitud_alturas_no_cumple():
 def test_decision_final_admitido_cuando_todo_cumple():
     resultados = {"item": validar_formulario(
         {"nombre": "A", "cedula": "1", "correo": "a@b.com", "celular": "3", "direccion": "d"},
-        {"nombre": "A", "numero": "1"}, firma_verificada=True,
+        {"nombre": "A", "numero": "1"}, entrega_confirmada=True,
     )}
     decision = evaluar_admision(resultados)
     assert decision["estado_sugerido"] == ADMITIDO
@@ -198,7 +198,7 @@ def test_decision_final_no_admitido_si_un_item_falla_aunque_otros_pendan():
         "formulario": validar_formulario(
             {"nombre": "A", "cedula": "1", "correo": "a@b.com", "celular": "3", "direccion": "d"},
             {"nombre": "A", "numero": "1"},
-        ),  # REQUIERE_REVISION (firma pendiente)
+        ),  # REQUIERE_REVISION (entrega pendiente)
     }
     decision = evaluar_admision(resultados)
     assert decision["estado_sugerido"] == NO_ADMITIDO
