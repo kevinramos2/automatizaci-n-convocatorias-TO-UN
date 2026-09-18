@@ -9,11 +9,14 @@ import { Visor, type PaginaVisor, type TabVisor } from './Visor'
 
 const MINTRABAJO_CONSULTA_ALTURAS = 'https://app2.mintrabajo.gov.co/CentrosEntrenamiento/consulta_ext.aspx'
 
-const OPC_ENTREGA: Opcion[] = [
+// Formulario y cédula se confirman por separado (cada uno con su documento en el visor).
+const opcionesAporto = (que: string): Opcion[] => [
   { valor: 'Pendiente', tono: 'neutral' },
-  { valor: 'Sí, entregó ambos', tono: 'good' },
-  { valor: 'No, falta alguno', tono: 'bad' },
+  { valor: 'Sí aportó', etiqueta: `Sí aportó ${que}`, tono: 'good' },
+  { valor: 'No aportó', etiqueta: `No aportó ${que}`, tono: 'bad' },
 ]
+const OPC_FORMULARIO = opcionesAporto('formulario')
+const OPC_CEDULA = opcionesAporto('cédula')
 const OPC_VALIDEZ: Opcion[] = [
   { valor: 'Según el sistema', tono: 'neutral' },
   { valor: 'Sí, válido', tono: 'good' },
@@ -125,7 +128,7 @@ export function ExpedienteDetalle({
 
   // Cuántos ítems tiene cada paso (el resumen no tiene).
   function nItems(p: number): number {
-    if (p === 0) return 1
+    if (p === 0) return 2 // formulario, luego cédula
     if (p === 1) return idxAcademicos.length
     if (p === 2) return idxRelacionados.length
     if (p === 3) return laborales.length
@@ -193,7 +196,7 @@ export function ExpedienteDetalle({
   // Al cambiar de paso/ítem, el visor salta al documento correspondiente.
   useEffect(() => {
     const foco = ((): { tab: string; pagina?: number } | null => {
-      if (paso === 0) return { tab: 'formulario', pagina: tabs[0].paginas[0]?.pagina ?? tabs[1].paginas[0]?.pagina }
+      if (paso === 0) return itemIdx === 0 ? { tab: 'formulario', pagina: tabs[0].paginas[0]?.pagina } : { tab: 'cedula', pagina: tabs[1].paginas[0]?.pagina }
       if (paso === 1) return { tab: 'academica', pagina: estudios[idxAcademicos[itemIdx]]?.paginas?.[0] }
       if (paso === 2) return { tab: 'relacionada', pagina: estudios[idxRelacionados[itemIdx]]?.paginas?.[0] }
       if (paso === 3) return { tab: 'laboral', pagina: laborales[itemIdx]?.paginas?.[0] }
@@ -210,7 +213,11 @@ export function ExpedienteDetalle({
 
   // ---- Control (opciones) del ítem actual: lo usan la tarjeta y los atajos 1/2/3 ----
   const control: Control | null = (() => {
-    if (paso === 0) return { opciones: OPC_ENTREGA, valor: estado.entrega_verificada, cambiar: (v) => set('entrega_verificada', v) }
+    if (paso === 0) {
+      return itemIdx === 0
+        ? { opciones: OPC_FORMULARIO, valor: estado.entrega_formulario, cambiar: (v) => set('entrega_formulario', v) }
+        : { opciones: OPC_CEDULA, valor: estado.entrega_cedula, cambiar: (v) => set('entrega_cedula', v) }
+    }
     if (paso === 1 && idxAcademicos.length) {
       const i = idxAcademicos[itemIdx]
       return { opciones: OPC_VALIDEZ, valor: estado.overrides_academicos[i] ?? 'Según el sistema', cambiar: (v) => setEnMapa('overrides_academicos', i, v) }
@@ -306,12 +313,18 @@ export function ExpedienteDetalle({
 
   function cuerpoPaso() {
     if (paso === 0) {
+      const esFormulario = itemIdx === 0
       return (
         <>
-          {titulo('Formulario de inscripción y cédula', 'Según la lista de chequeo: confirma que el aspirante entregó el formulario de inscripción y la fotocopia de la cédula. Nunca se confirma automáticamente.')}
-          {cajaSistema(rvs.formulario)}
-          {cajaSistema(rvs.cedula)}
-          {pregunta('¿Entregó el formulario de inscripción y la fotocopia de la cédula?')}
+          {titulo(
+            esFormulario ? 'Formulario de inscripción' : 'Fotocopia de la cédula',
+            esFormulario
+              ? 'Según la lista de chequeo: confirma que el aspirante aportó el formulario de inscripción diligenciado.'
+              : 'Según la lista de chequeo: confirma que el aspirante aportó la fotocopia de la cédula.',
+          )}
+          {cajaSistema(esFormulario ? rvs.formulario : rvs.cedula)}
+          {pregunta(esFormulario ? '¿Aportó el formulario de inscripción?' : '¿Aportó la fotocopia de la cédula?')}
+          {listaItems('Documentos de entrega', ['Formulario de inscripción', 'Fotocopia de la cédula'], (n) => (n === 0 ? estado.entrega_formulario : estado.entrega_cedula) !== 'Pendiente')}
         </>
       )
     }
@@ -491,7 +504,7 @@ export function ExpedienteDetalle({
             <>
               {!decisionFinal && (
                 <p className="text-[12.5px]" style={{ color: 'var(--to-ink-muted)' }}>
-                  Todavía hay ítems pendientes de confirmar (entrega, relacionado, alturas, médica) — resuélvelos para poder guardar una decisión final.
+                  Todavía hay ítems pendientes de confirmar (formulario, cédula, relacionado, alturas, médica) — resuélvelos para poder guardar una decisión final.
                 </p>
               )}
               <label className="flex flex-col gap-1 text-xs font-semibold" style={{ color: 'var(--to-ink)' }}>

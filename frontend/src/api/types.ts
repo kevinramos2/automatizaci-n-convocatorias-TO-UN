@@ -77,7 +77,8 @@ export interface Cedula {
 }
 
 export interface RevisionHumana {
-  entrega_verificada: string
+  entrega_formulario: string
+  entrega_cedula: string
   overrides_academicos: Record<string, string>
   decisiones_relacionado_estudio: Record<string, string>
   decisiones_relacionado_laboral: Record<string, string>
@@ -122,7 +123,8 @@ export interface ExpedienteResumen {
 
 export interface RevisionInput {
   revisado_por: string
-  entrega_verificada: string
+  entrega_formulario: string
+  entrega_cedula: string
   overrides_academicos: Record<string, string>
   decisiones_relacionado_estudio: Record<string, string>
   decisiones_relacionado_laboral: Record<string, string>

@@ -100,7 +100,8 @@ def test_revision_guarda_cuando_queda_todo_confirmado():
          patch.dict("os.environ", {"GOOGLE_SHEETS_SPREADSHEET_ID": "fake-id"}):
         r = client.post(f"/api/expedientes/{_HASH}/revision", json={
             "revisado_por": "Tester",
-            "entrega_verificada": "Sí, entregó ambos",
+            "entrega_formulario": "Sí aportó",
+            "entrega_cedula": "Sí aportó",
             "overrides_academicos": {"0": "Sí, válido"},
             "decisiones_relacionado_laboral": {"0": "SI"},
             "alturas_override": "Según el sistema",
@@ -118,7 +119,8 @@ def test_revision_guarda_cuando_queda_todo_confirmado():
     # La caché local quedó con "revision_humana" — no solo el estado final.
     cache_guardada = guardados["ultimo"]
     assert cache_guardada["estado_confirmado_por_humano"] == "ADMITIDO"
-    assert cache_guardada["revision_humana"]["entrega_verificada"] == "Sí, entregó ambos"
+    assert cache_guardada["revision_humana"]["entrega_formulario"] == "Sí aportó"
+    assert cache_guardada["revision_humana"]["entrega_cedula"] == "Sí aportó"
     assert cache_guardada["revision_humana"]["overrides_academicos"] == {"0": "Sí, válido"}
     assert cache_guardada["revision_humana"]["revisado_por"] == "Tester"
 
@@ -126,7 +128,7 @@ def test_revision_guarda_cuando_queda_todo_confirmado():
 def test_revision_valida_estado_entrega():
     with patch.object(api_main, "cargar_resultado", return_value=_resultado_base()):
         r = client.post(f"/api/expedientes/{_HASH}/revision", json={
-            "revisado_por": "Tester", "entrega_verificada": "valor-invalido",
+            "revisado_por": "Tester", "entrega_cedula": "valor-invalido",
         })
     assert r.status_code == 400
 
@@ -145,6 +147,32 @@ def test_imagen_pagina_suma_el_giro_manual_a_la_rotacion_guardada():
         assert client.get(f"/api/expedientes/{_HASH}/paginas/2").status_code == 200
         assert capturado["rotacion"] == 180  # sin excepción por página: la del expediente
         assert client.get(f"/api/expedientes/{_HASH}/paginas/2?extra=45").status_code == 400
+
+
+def test_formulario_y_cedula_se_combinan_en_el_item_1():
+    def estado_item1(formulario, cedula):
+        with patch.object(api_main, "cargar_resultado", return_value=_resultado_base()):
+            r = client.post(f"/api/expedientes/{_HASH}/revision/preview", json={
+                "entrega_formulario": formulario, "entrega_cedula": cedula,
+            }).json()
+        return r["resultados_actualizados"]["formulario"]["estado"]
+
+    assert estado_item1("Sí aportó", "Sí aportó") == "cumple"
+    assert estado_item1("Sí aportó", "Pendiente") == "requiere_revision_manual"  # falta confirmar la cédula
+    assert estado_item1("No aportó", "Pendiente") == "no_cumple"  # con uno que falte ya no cumple
+    assert estado_item1("Sí aportó", "No aportó") == "no_cumple"
+
+
+def test_revision_guardada_con_el_formato_anterior_se_lee_como_dos_respuestas():
+    base = {**_resultado_base(), "revision_humana": {"entrega_verificada": "Sí, entregó ambos", "revisado_por": "K"}}
+    with patch.object(api_main, "cargar_resultado", return_value=base):
+        rev = client.get(f"/api/expedientes/{_HASH}").json()["revision_humana"]
+    assert rev["entrega_formulario"] == "Sí aportó" and rev["entrega_cedula"] == "Sí aportó"
+
+    base = {**_resultado_base(), "revision_humana": {"firma_verificada": "No coincide", "revisado_por": "K"}}
+    with patch.object(api_main, "cargar_resultado", return_value=base):
+        rev = client.get(f"/api/expedientes/{_HASH}").json()["revision_humana"]
+    assert rev["entrega_formulario"] == "No aportó" and rev["entrega_cedula"] == "Pendiente"
 
 
 def test_procesar_rechaza_convocatoria_invalida():

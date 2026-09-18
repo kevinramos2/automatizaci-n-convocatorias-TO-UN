@@ -19,7 +19,9 @@ class RevisionInput(BaseModel):
     GUARDAR de verdad se valida en el endpoint /revision, no acá.
     """
     revisado_por: str = ""
-    entrega_verificada: str = "Pendiente"  # "Pendiente" | "Sí, entregó ambos" | "No, falta alguno"
+    # Se confirman por separado: primero el formulario, luego la cédula.
+    entrega_formulario: str = "Pendiente"  # "Pendiente" | "Sí aportó" | "No aportó"
+    entrega_cedula: str = "Pendiente"  # "Pendiente" | "Sí aportó" | "No aportó"
     overrides_academicos: dict[str, str] = {}  # índice -> "Según el sistema"|"Sí, válido"|"No es válido"
     decisiones_relacionado_estudio: dict[str, str] = {}  # índice -> "PENDIENTE"|"SI"|"NO"
     decisiones_relacionado_laboral: dict[str, str] = {}  # índice -> "PENDIENTE"|"SI"|"NO"
