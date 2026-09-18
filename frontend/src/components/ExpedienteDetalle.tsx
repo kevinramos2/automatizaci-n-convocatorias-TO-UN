@@ -9,18 +9,19 @@ import { Visor, type PaginaVisor } from './Visor'
 
 const MINTRABAJO_CONSULTA_ALTURAS = 'https://app2.mintrabajo.gov.co/CentrosEntrenamiento/consulta_ext.aspx'
 
+// Atajos: en todas las preguntas 1 = sí, 2 = no, 3 = pendiente / según el sistema.
 // Formulario y cédula se confirman por separado (cada uno con su documento en el visor).
 const opcionesAporto = (que: string): Opcion[] => [
-  { valor: 'Pendiente', tono: 'neutral' },
   { valor: 'Sí aportó', etiqueta: `Sí aportó ${que}`, tono: 'good' },
   { valor: 'No aportó', etiqueta: `No aportó ${que}`, tono: 'bad' },
+  { valor: 'Pendiente', tono: 'neutral' },
 ]
 const OPC_FORMULARIO = opcionesAporto('formulario')
 const OPC_CEDULA = opcionesAporto('cédula')
 const OPC_VALIDEZ: Opcion[] = [
-  { valor: 'Según el sistema', tono: 'neutral' },
   { valor: 'Sí, válido', tono: 'good' },
   { valor: 'No es válido', tono: 'bad' },
+  { valor: 'Según el sistema', tono: 'neutral' },
 ]
 const OPC_RELACIONADO: Opcion[] = [
   { valor: 'SI', etiqueta: 'SÍ', tono: 'good' },
