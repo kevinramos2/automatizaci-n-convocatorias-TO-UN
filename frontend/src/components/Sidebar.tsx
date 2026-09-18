@@ -121,10 +121,10 @@ export function Sidebar({
           <button
             type="button"
             onClick={() => setModo('subir')}
-            className="h-9 rounded-lg border text-[13px] font-semibold"
-            style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)' }}
+            className="flex h-10 items-center justify-center gap-1.5 rounded-lg border text-[13px] font-semibold"
+            style={{ background: 'var(--to-accent-tint)', borderColor: 'var(--to-accent-tint-border)', color: 'var(--to-accent)' }}
           >
-            Subir expediente nuevo
+            <span className="text-base leading-none" aria-hidden="true">+</span> Subir expediente nuevo
           </button>
         </>
       ) : (
@@ -146,6 +146,7 @@ function SubirExpediente({ onProcesado, onVolver }: { onProcesado: (hash: string
   const [convocatoria, setConvocatoria] = useState<string>('')
   const [archivo, setArchivo] = useState<File | null>(null)
   const [mensaje, setMensaje] = useState<string | null>(null)
+  const [arrastrando, setArrastrando] = useState(false)
   const procesar = useProcesarExpediente()
 
   const opcionesConv = convocatorias ? Object.entries(convocatorias) : []
@@ -162,14 +163,33 @@ function SubirExpediente({ onProcesado, onVolver }: { onProcesado: (hash: string
     }
   }
 
+  const etiquetaCampo = 'mb-1.5 block text-[11px] font-bold tracking-wide uppercase'
+  const tamano = archivo ? (archivo.size >= 1024 * 1024 ? `${(archivo.size / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(archivo.size / 1024))} KB`) : ''
+
+  function elegir(f: File | undefined | null) {
+    if (!f) return
+    if (f.type !== 'application/pdf' && !f.name.toLowerCase().endsWith('.pdf')) {
+      setMensaje('El archivo debe ser un PDF.')
+      return
+    }
+    setMensaje(null)
+    setArchivo(f)
+  }
+
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-sm font-bold">Subir expediente nuevo</p>
+    <div className="flex flex-col gap-3.5">
+      <div className="flex items-center justify-between">
+        <p className="text-[15px] font-bold" style={{ color: 'var(--to-ink)' }}>Subir expediente nuevo</p>
+        <button type="button" onClick={onVolver} disabled={procesar.isPending} className="text-xs font-semibold disabled:opacity-50" style={{ color: 'var(--to-accent)' }}>
+          ← Volver
+        </button>
+      </div>
+
       <div>
-        <label htmlFor="conv" className="mb-1 block text-sm font-medium">Convocatoria</label>
+        <label htmlFor="conv" className={etiquetaCampo} style={{ color: 'var(--to-ink-muted)' }}>Convocatoria</label>
         <select
           id="conv"
-          className="w-full rounded-md border px-2 py-1.5 text-sm"
+          className="h-10 w-full rounded-lg border px-2.5 text-sm font-medium"
           style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)', color: 'var(--to-ink)' }}
           value={convActual}
           onChange={(e) => setConvocatoria(e.target.value)}
@@ -181,12 +201,57 @@ function SubirExpediente({ onProcesado, onVolver }: { onProcesado: (hash: string
       </div>
 
       <div>
-        <label htmlFor="pdf" className="mb-1 block text-sm font-medium">PDF del expediente del aspirante</label>
-        <input id="pdf" type="file" accept="application/pdf" onChange={(e) => setArchivo(e.target.files?.[0] ?? null)} className="w-full text-sm" />
+        <span className={etiquetaCampo} style={{ color: 'var(--to-ink-muted)' }}>PDF del expediente</span>
+        {archivo ? (
+          <div className="flex items-center gap-3 rounded-xl border p-3" style={{ background: 'var(--to-accent-tint)', borderColor: 'var(--to-accent-tint-border)' }}>
+            <div className="flex h-10 w-9 shrink-0 items-center justify-center rounded-md text-[10px] font-bold" style={{ background: 'var(--to-accent)', color: 'var(--to-bg)' }} aria-hidden="true">PDF</div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[13px] font-semibold" style={{ color: 'var(--to-ink)' }} title={archivo.name}>{archivo.name}</div>
+              <div className="text-xs" style={{ color: 'var(--to-ink-muted)' }}>{tamano}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setArchivo(null)}
+              disabled={procesar.isPending}
+              aria-label="Quitar archivo"
+              title="Quitar archivo"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-base disabled:opacity-50"
+              style={{ color: 'var(--to-ink-muted)' }}
+            >
+              ✕
+            </button>
+          </div>
+        ) : (
+          <label
+            htmlFor="pdf"
+            onDragOver={(e) => {
+              e.preventDefault()
+              setArrastrando(true)
+            }}
+            onDragLeave={() => setArrastrando(false)}
+            onDrop={(e) => {
+              e.preventDefault()
+              setArrastrando(false)
+              elegir(e.dataTransfer.files?.[0])
+            }}
+            className="flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-6 text-center focus-within:ring-2 focus-within:ring-[var(--to-accent)]"
+            style={{
+              borderColor: arrastrando ? 'var(--to-accent)' : 'var(--to-border)',
+              background: arrastrando ? 'var(--to-accent-tint)' : 'var(--to-surface)',
+            }}
+          >
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--to-accent)' }} aria-hidden="true">
+              <path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" />
+            </svg>
+            <span className="text-[13.5px] font-semibold" style={{ color: 'var(--to-ink)' }}>Arrastra el PDF aquí</span>
+            <span className="text-xs" style={{ color: 'var(--to-ink-muted)' }}>o <span className="font-semibold underline" style={{ color: 'var(--to-accent)' }}>elige un archivo</span></span>
+            <input id="pdf" type="file" accept="application/pdf" onChange={(e) => elegir(e.target.files?.[0])} className="sr-only" />
+          </label>
+        )}
       </div>
 
       {archivo && (
-        <p className="text-xs" style={{ color: 'var(--to-ink-muted)' }}>
+        <p className="rounded-lg border px-3 py-2 text-xs leading-snug" style={{ color: 'var(--to-ink-muted)', borderColor: 'var(--to-border)', background: 'var(--to-surface)' }}>
           Procesar un expediente nuevo llama a la API de Claude (~$0.15-0.25 USD). Si ya se procesó antes, se carga sin costo.
         </p>
       )}
@@ -195,13 +260,10 @@ function SubirExpediente({ onProcesado, onVolver }: { onProcesado: (hash: string
         type="button"
         disabled={!archivo || procesar.isPending}
         onClick={manejarProcesar}
-        className="rounded-md px-3 py-2 text-sm font-semibold disabled:opacity-50"
+        className="h-10 rounded-lg px-3 text-sm font-semibold disabled:opacity-50"
         style={{ background: 'var(--to-accent)', color: 'var(--to-bg)' }}
       >
         {procesar.isPending ? 'Procesando… puede tardar 1-2 minutos' : 'Procesar expediente'}
-      </button>
-      <button type="button" onClick={onVolver} disabled={procesar.isPending} className="text-sm font-medium underline disabled:opacity-50">
-        Volver a la lista
       </button>
 
       {mensaje && <p className="text-xs" style={{ color: 'var(--to-bad)' }}>{mensaje}</p>}
