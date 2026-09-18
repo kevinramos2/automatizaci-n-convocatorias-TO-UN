@@ -178,12 +178,7 @@ function SubirExpediente({ onProcesado, onVolver }: { onProcesado: (hash: string
 
   return (
     <div className="flex flex-col gap-3.5">
-      <div className="flex items-center justify-between">
-        <p className="text-[15px] font-bold" style={{ color: 'var(--to-ink)' }}>Subir expediente nuevo</p>
-        <button type="button" onClick={onVolver} disabled={procesar.isPending} className="text-xs font-semibold disabled:opacity-50" style={{ color: 'var(--to-accent)' }}>
-          ← Volver
-        </button>
-      </div>
+      <p className="text-[15px] font-bold" style={{ color: 'var(--to-ink)' }}>Subir expediente nuevo</p>
 
       <div>
         <label htmlFor="conv" className={etiquetaCampo} style={{ color: 'var(--to-ink-muted)' }}>Convocatoria</label>
@@ -264,6 +259,16 @@ function SubirExpediente({ onProcesado, onVolver }: { onProcesado: (hash: string
         style={{ background: 'var(--to-accent)', color: 'var(--to-bg)' }}
       >
         {procesar.isPending ? 'Procesando… puede tardar 1-2 minutos' : 'Procesar expediente'}
+      </button>
+
+      <button
+        type="button"
+        onClick={onVolver}
+        disabled={procesar.isPending}
+        className="h-10 rounded-lg border text-sm font-semibold disabled:opacity-50"
+        style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)', color: 'var(--to-ink)' }}
+      >
+        ← Volver a la lista
       </button>
 
       {mensaje && <p className="text-xs" style={{ color: 'var(--to-bad)' }}>{mensaje}</p>}
