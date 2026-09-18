@@ -422,23 +422,29 @@ export function ExpedienteDetalle({
     const res = preview?.resultados_actualizados ?? rvs
     const nRel = idxRelacionados.length
     const nSi = idxRelacionados.filter((i) => estado.decisiones_relacionado_estudio[i] === 'SI').length
-    const filas: { paso: number; titulo: string; estado: string; detalle: string }[] = [
-      { paso: 0, titulo: 'Formulario y cédula', estado: peor([res.formulario.estado, res.cedula.estado]), detalle: res.formulario.motivo },
-      { paso: 1, titulo: 'Información académica', estado: res.estudio.estado, detalle: res.estudio.motivo },
-      { paso: 2, titulo: 'Educación relacionada', estado: hecho(2) ? 'cumple' : 'requiere_revision_manual', detalle: nRel ? `${nSi} de ${nRel} relacionados con el cargo` : 'No se aportó formación adicional' },
-      { paso: 3, titulo: 'Experiencia laboral', estado: res.laboral.estado, detalle: res.laboral.motivo },
-      { paso: 4, titulo: 'Certificado de alturas', estado: res.alturas.estado, detalle: res.alturas.motivo },
-      { paso: 5, titulo: 'Evaluación médica', estado: res.medica.estado, detalle: res.medica.motivo },
+    const corto = (v: string) => (v === 'Sí aportó' ? 'sí' : v === 'No aportó' ? 'no' : 'pendiente')
+    const nLab = laborales.length
+    const nLabSi = laborales.filter((_, n) => estado.decisiones_relacionado_laboral[n] === 'SI').length
+    const nombresRel = idxRelacionados.map((i) => `${estudios[i].nombre_curso || estudios[i].titulo || capitalizar(estudios[i].nivel ?? 'Estudio')}: ${estado.decisiones_relacionado_estudio[i] === 'SI' ? 'sí' : estado.decisiones_relacionado_estudio[i] === 'NO' ? 'no' : 'pendiente'}`)
+    const nAcadRev = idxAcademicos.filter((i) => (estado.overrides_academicos[i] ?? 'Según el sistema') !== 'Según el sistema').length
+    const filas: { paso: number; titulo: string; estado: string; detalle: string; revision: string }[] = [
+      { paso: 0, titulo: 'Formulario y cédula', estado: peor([res.formulario.estado, res.cedula.estado]), detalle: res.formulario.motivo, revision: `Formulario: ${corto(estado.entrega_formulario)} · Cédula: ${corto(estado.entrega_cedula)}` },
+      { paso: 1, titulo: 'Información académica', estado: res.estudio.estado, detalle: res.estudio.motivo, revision: idxAcademicos.length ? `${idxAcademicos.length} documento(s) · ${nAcadRev} validado(s) por ti` : 'Sin documentos del colegio' },
+      { paso: 2, titulo: 'Educación relacionada', estado: hecho(2) ? 'cumple' : 'requiere_revision_manual', detalle: nRel ? `${nSi} de ${nRel} relacionados con el cargo` : 'No se aportó formación adicional', revision: nombresRel.join(' · ') || '—' },
+      { paso: 3, titulo: 'Experiencia laboral', estado: res.laboral.estado, detalle: res.laboral.motivo, revision: nLab ? `${nLabSi} de ${nLab} constancia(s) relacionada(s) según tú` : 'Sin constancias' },
+      { paso: 4, titulo: 'Certificado de alturas', estado: res.alturas.estado, detalle: res.alturas.motivo, revision: `Tu respuesta: ${estado.alturas_override}` },
+      { paso: 5, titulo: 'Evaluación médica', estado: res.medica.estado, detalle: res.medica.motivo, revision: `Tu respuesta: ${estado.medica_override}` },
     ]
     return (
       <>
         <div className="flex flex-col gap-1.5">
           {filas.map((f, n) => (
-            <div key={f.paso} className="flex items-center gap-3 rounded-[10px] border px-3 py-1" style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)' }}>
+            <div key={f.paso} className="flex items-center gap-3 rounded-[10px] border px-3 py-[3px]" style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)' }}>
               <span className="font-mono-to text-xs" style={{ color: 'var(--to-ink-muted)' }}>{String(n + 1).padStart(2, '0')}</span>
               <div className="min-w-0 flex-1">
                 <div className="text-[13.5px] font-semibold" style={{ color: 'var(--to-ink)' }}>{f.titulo}</div>
-                <div className="truncate text-xs" title={f.detalle} style={{ color: 'var(--to-ink-muted)' }}>{f.detalle}</div>
+                <div className="truncate text-xs leading-snug [@media(min-height:820px)]:line-clamp-2 [@media(min-height:820px)]:whitespace-normal" title={f.detalle} style={{ color: 'var(--to-ink-muted)' }}>{f.detalle}</div>
+                <div className="hidden truncate text-xs leading-snug font-medium [@media(min-height:690px)]:block" title={f.revision} style={{ color: 'var(--to-ink)' }}>{f.revision}</div>
               </div>
               <EstadoPill estado={f.estado} />
               <button type="button" onClick={() => irA(f.paso)} className="text-[12.5px] font-semibold underline" style={{ color: 'var(--to-accent)' }}>Editar</button>
@@ -511,17 +517,16 @@ export function ExpedienteDetalle({
           {paso === PASO_RESUMEN && (
             <div className="flex items-center gap-2.5">
               <EstadoBadge estado={claveEstado(estadoFinal)} texto={estadoFinal} pequeno />
-              {causalFinal && <p className="line-clamp-2 min-w-0 text-xs leading-snug" style={{ color: 'var(--to-ink-muted)' }} title={causalFinal}>{causalFinal}</p>}
+              {(causalFinal || !decisionFinal) && (
+                <p className="line-clamp-2 min-w-0 text-xs leading-snug" style={{ color: 'var(--to-ink-muted)' }} title={causalFinal ?? undefined}>
+                  {decisionFinal ? causalFinal : 'Hay ítems por confirmar: resuélvelos para poder guardar.'}
+                </p>
+              )}
             </div>
           )}
 
           {paso === PASO_RESUMEN ? (
             <>
-              {!decisionFinal && (
-                <p className="text-[12.5px]" style={{ color: 'var(--to-ink-muted)' }}>
-                  Hay ítems por confirmar: resuélvelos para poder guardar.
-                </p>
-              )}
               <input
                 type="text"
                 value={estado.revisado_por}

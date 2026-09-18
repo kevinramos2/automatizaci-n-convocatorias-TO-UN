@@ -46,6 +46,23 @@ export function Visor({
   const [zoom, setZoom] = useState(1)
   const [giro, setGiro] = useState(0)
   const [ampliado, setAmpliado] = useState(false)
+  const [tira, setTira] = useState(() => {
+    try {
+      return localStorage.getItem('to-visor-tira') !== 'oculta'
+    } catch {
+      return true
+    }
+  })
+  function alternarTira() {
+    setTira((t) => {
+      try {
+        localStorage.setItem('to-visor-tira', t ? 'oculta' : 'visible')
+      } catch {
+        /* sin almacenamiento: solo dura esta sesión */
+      }
+      return !t
+    })
+  }
 
   useEffect(() => {
     setZoom(1)
@@ -60,6 +77,7 @@ export function Visor({
   }, [])
 
   const paginaActual = paginas.find((p) => p.pagina === pagina) ?? paginas[0] ?? null
+  const indiceActual = Math.max(paginas.findIndex((p) => p.pagina === paginaActual?.pagina), 0)
 
   return (
     <main className="flex min-w-0 flex-1 flex-col" style={{ background: 'var(--to-bg)' }}>
@@ -108,6 +126,18 @@ export function Visor({
               {paginaActual.etiqueta ? `${paginaActual.etiqueta} · ` : ''}página {paginaActual.pagina}
             </div>
             <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-full px-2 py-1" style={{ background: 'rgba(33,36,43,.9)' }}>
+              {paginas.length > 1 && (
+                <>
+                  <BotonIcono etiqueta="Página anterior" onClick={() => onPagina(paginas[Math.max(indiceActual - 1, 0)].pagina)}>
+                    <svg width="17" height="17" viewBox="0 0 24 24" {...ICONO}><path d="M15 5l-7 7 7 7" /></svg>
+                  </BotonIcono>
+                  <span className="min-w-12 text-center text-[12.5px] font-semibold text-white">{indiceActual + 1} / {paginas.length}</span>
+                  <BotonIcono etiqueta="Página siguiente" onClick={() => onPagina(paginas[Math.min(indiceActual + 1, paginas.length - 1)].pagina)}>
+                    <svg width="17" height="17" viewBox="0 0 24 24" {...ICONO}><path d="M9 5l7 7-7 7" /></svg>
+                  </BotonIcono>
+                  <span className="mx-1.5 h-[18px] w-px bg-white/30" />
+                </>
+              )}
               <BotonIcono etiqueta="Alejar" onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}>
                 <svg width="17" height="17" viewBox="0 0 24 24" {...ICONO}><path d="M5 12h14" /></svg>
               </BotonIcono>
@@ -131,6 +161,21 @@ export function Visor({
         )}
       </div>
 
+      <div className="flex items-center justify-between border-t px-4 py-1.5" style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)' }}>
+        <span className="text-xs" style={{ color: 'var(--to-ink-muted)' }}>
+          {paginas.length} página{paginas.length === 1 ? '' : 's'} en {grupos.length} documento{grupos.length === 1 ? '' : 's'}
+        </span>
+        <button
+          type="button"
+          onClick={alternarTira}
+          aria-expanded={tira}
+          className="rounded-md border px-2.5 py-1 text-xs font-semibold"
+          style={{ borderColor: 'var(--to-border)', background: 'var(--to-surface-2)', color: 'var(--to-ink)' }}
+        >
+          {tira ? 'Ocultar miniaturas' : 'Mostrar miniaturas'}
+        </button>
+      </div>
+      {tira && (
       <div className="flex items-stretch gap-2.5 overflow-x-auto border-t px-4 py-2.5" style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)' }}>
         {grupos.map((g, n) => (
           <div
@@ -165,6 +210,7 @@ export function Visor({
         ))}
         {paginas.length === 0 && <span className="text-xs" style={{ color: 'var(--to-ink-muted)' }}>Sin páginas</span>}
       </div>
+      )}
 
       {ampliado && paginaActual && (
         <ModalPaginas hash={hash} paginas={paginas.map((p) => p.pagina)} onCerrar={() => setAmpliado(false)} />
