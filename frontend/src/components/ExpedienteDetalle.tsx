@@ -48,9 +48,8 @@ function capitalizar(texto: string): string {
   return texto ? texto.charAt(0).toUpperCase() + texto.slice(1).toLowerCase() : texto
 }
 
-// Python str(bool) es "True"/"False" — así se veía en Streamlit.
 function textoBooleano(valor: boolean | null): string {
-  return valor === null ? 'None' : valor ? 'True' : 'False'
+  return valor === null ? 'No indica' : valor ? 'Sí' : 'No'
 }
 
 // Las cajas "Resultado del sistema" siempre muestran la etiqueta del estado + el motivo.
@@ -449,7 +448,7 @@ export function ExpedienteDetalle({
       if (!medica?.aportado) return vacio('No se aportó evaluación médica ocupacional.')
       return (
         <>
-          {titulo('Evaluación médica', `${medica.entidad_emisora || '—'} · Expedición: ${medica.fecha_expedicion || '—'} · Concepto de aptitud en alturas: ${textoBooleano(medica.concepto_aptitud_alturas)}`)}
+          {titulo('Evaluación médica', `${medica.entidad_emisora || '—'} · Expedición: ${medica.fecha_expedicion || '—'} · Apto para trabajo en alturas: ${textoBooleano(medica.concepto_aptitud_alturas)}`)}
           {cajaSistema(rvs.medica)}
           {pregunta('¿Es válida la evaluación médica?')}
         </>
