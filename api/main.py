@@ -274,6 +274,9 @@ def guardar_revision(hash_: str, datos: RevisionInput):
     No hay una versión "sugerida" aparte: esto solo se llama cuando un humano ya
     confirmó la revisión completa.
     """
+    if not datos.revisado_por.strip():
+        raise HTTPException(400, "Falta el nombre de quien revisa.")
+
     resultado = _cargar_o_404(hash_)
     cfg = _cargar_cfg()
     formulario = resultado["formulario"]

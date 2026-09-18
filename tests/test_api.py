@@ -131,9 +131,45 @@ def test_revision_valida_estado_firma():
     assert r.status_code == 400
 
 
+def test_procesar_rechaza_convocatoria_invalida():
+    r = client.post(
+        "/api/expedientes/procesar",
+        data={"convocatoria": "TO-99"},
+        files={"archivo": ("x.pdf", b"contenido falso", "application/pdf")},
+    )
+    assert r.status_code == 400
+
+
+def test_procesar_expediente_ya_cacheado_no_llama_a_claude():
+    # El caso más importante para no gastar de más: si el hash del archivo ya
+    # está procesado, ni pipeline.procesar_expediente ni anthropic.Anthropic()
+    # deben llamarse — el endpoint tiene que cortar camino ANTES de eso.
+    with patch.object(api_main, "existe_en_cache", return_value=True), \
+         patch.object(api_main, "procesar_expediente") as mock_procesar, \
+         patch("anthropic.Anthropic") as mock_cliente:
+        r = client.post(
+            "/api/expedientes/procesar",
+            data={"convocatoria": "TO-01"},
+            files={"archivo": ("x.pdf", b"contenido falso", "application/pdf")},
+        )
+    assert r.status_code == 200
+    cuerpo = r.json()
+    assert cuerpo["ya_procesado"] is True
+    assert cuerpo["costo_usd"] == 0.0
+    mock_procesar.assert_not_called()
+    mock_cliente.assert_not_called()
+
+
 def test_revision_exige_nombre_de_revisor():
-    r = client.post(f"/api/expedientes/{_HASH}/revision", json={"revisado_por": ""})
-    assert r.status_code == 422  # Pydantic: min_length=1
+    # revisado_por vacío: rechazado explícitamente en /revision (400), pero el
+    # esquema en sí lo permite vacío — /revision/preview reusa la misma forma y
+    # se llama en vivo con cada clic, antes de que el revisor escriba su nombre.
+    with patch.object(api_main, "cargar_resultado", return_value=_resultado_base()):
+        r = client.post(f"/api/expedientes/{_HASH}/revision", json={"revisado_por": ""})
+        assert r.status_code == 400
+
+        r_preview = client.post(f"/api/expedientes/{_HASH}/revision/preview", json={"revisado_por": ""})
+        assert r_preview.status_code == 200
 
 
 if __name__ == "__main__":
