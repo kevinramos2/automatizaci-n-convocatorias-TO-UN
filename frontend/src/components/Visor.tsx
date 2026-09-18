@@ -52,6 +52,13 @@ export function Visor({
     setGiro(0)
   }, [pagina])
 
+  // Cada documento (PDF de origen) forma un grupo: empieza donde inicioDoc es verdadero.
+  const grupos = paginas.reduce<PaginaVisor[][]>((acc, p) => {
+    if (p.inicioDoc || !acc.length) acc.push([p])
+    else acc[acc.length - 1].push(p)
+    return acc
+  }, [])
+
   const paginaActual = paginas.find((p) => p.pagina === pagina) ?? paginas[0] ?? null
 
   return (
@@ -124,24 +131,38 @@ export function Visor({
         )}
       </div>
 
-      <div className="flex items-end gap-3 overflow-x-auto border-t px-5 py-3" style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)', minHeight: 104 }}>
-        {paginas.map((p) => {
-          const activa = paginaActual?.pagina === p.pagina
-          return (
-            <button key={p.pagina} type="button" onClick={() => onPagina(p.pagina)} className="flex shrink-0 flex-col items-center gap-1" title={`Página ${p.pagina}`}>
-              <img
-                src={urlPagina(hash, p.pagina, 30)}
-                alt={`Miniatura página ${p.pagina}`}
-                loading="lazy"
-                className="block h-[68px] min-w-[52px] w-auto max-w-[96px] bg-white object-contain"
-                style={{ border: activa ? '2px solid var(--to-accent)' : '1px solid var(--to-border)', borderRadius: 3 }}
-              />
-              <span className="max-w-[104px] text-center text-[11px] leading-tight" style={{ color: 'var(--to-ink-muted)' }}>
-                {p.inicioDoc && p.etiqueta ? p.etiqueta : `Pág. ${p.pagina}`}
-              </span>
-            </button>
-          )
-        })}
+      <div className="flex items-stretch gap-2.5 overflow-x-auto border-t px-4 py-2.5" style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)' }}>
+        {grupos.map((g, n) => (
+          <div
+            key={n}
+            className="flex shrink-0 flex-col gap-1.5 rounded-lg border px-2 py-1.5"
+            style={{ borderColor: 'var(--to-border)', background: 'var(--to-surface-2)' }}
+          >
+            <div className="flex items-baseline gap-1.5 text-[11.5px] leading-none whitespace-nowrap" style={{ color: 'var(--to-ink)' }}>
+              <span className="max-w-[190px] truncate font-semibold" title={g[0].etiqueta ?? undefined}>{g[0].etiqueta ?? 'Documento'}</span>
+              <span style={{ color: 'var(--to-ink-muted)' }}>{g.length === 1 ? '1 pág.' : `${g.length} págs.`}</span>
+            </div>
+            <div className="flex gap-2">
+              {g.map((p) => {
+                const activa = paginaActual?.pagina === p.pagina
+                return (
+                  <button key={p.pagina} type="button" onClick={() => onPagina(p.pagina)} className="flex shrink-0 flex-col items-center gap-0.5" title={`Página ${p.pagina}`}>
+                    <img
+                      src={urlPagina(hash, p.pagina, 30)}
+                      alt={`Miniatura página ${p.pagina}`}
+                      loading="lazy"
+                      className="block h-[64px] min-w-[46px] w-auto max-w-[90px] bg-white object-contain"
+                      style={{ border: activa ? '2px solid var(--to-accent)' : '1px solid var(--to-border)', borderRadius: 3 }}
+                    />
+                    <span className="text-[10.5px] leading-tight" style={{ color: activa ? 'var(--to-accent)' : 'var(--to-ink-muted)', fontWeight: activa ? 700 : 400 }}>
+                      Pág. {p.pagina}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
         {paginas.length === 0 && <span className="text-xs" style={{ color: 'var(--to-ink-muted)' }}>Sin páginas</span>}
       </div>
 
