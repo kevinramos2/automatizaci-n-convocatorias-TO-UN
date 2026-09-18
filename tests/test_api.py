@@ -131,6 +131,22 @@ def test_revision_valida_estado_entrega():
     assert r.status_code == 400
 
 
+def test_imagen_pagina_suma_el_giro_manual_a_la_rotacion_guardada():
+    capturado = {}
+
+    def _falso(pdf_path, numero, dpi=150, rotacion=0):
+        capturado["rotacion"] = rotacion
+        return "aGVsbG8="  # "hello" en base64
+
+    base = {**_resultado_base(), "rotacion": 180, "rotaciones_paginas": {"5": 270}}
+    with patch.object(api_main, "cargar_resultado", return_value=base),          patch.object(api_main, "pagina_a_imagen_base64", side_effect=_falso):
+        assert client.get(f"/api/expedientes/{_HASH}/paginas/5?extra=90").status_code == 200
+        assert capturado["rotacion"] == 0  # (270 + 90) % 360
+        assert client.get(f"/api/expedientes/{_HASH}/paginas/2").status_code == 200
+        assert capturado["rotacion"] == 180  # sin excepción por página: la del expediente
+        assert client.get(f"/api/expedientes/{_HASH}/paginas/2?extra=45").status_code == 400
+
+
 def test_procesar_rechaza_convocatoria_invalida():
     r = client.post(
         "/api/expedientes/procesar",

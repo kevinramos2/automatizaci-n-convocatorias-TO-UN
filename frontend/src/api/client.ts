@@ -43,8 +43,9 @@ export function obtenerConfig(): Promise<{ sheet_url: string | null }> {
   return pedir('/config')
 }
 
-export function urlPagina(hash: string, numero: number, dpi = 150): string {
-  return `${BASE}/expedientes/${hash}/paginas/${numero}?dpi=${dpi}`
+// `extra`: giro manual en grados (múltiplo de 90) sobre la rotación automática.
+export function urlPagina(hash: string, numero: number, dpi = 150, extra = 0): string {
+  return `${BASE}/expedientes/${hash}/paginas/${numero}?dpi=${dpi}${extra ? `&extra=${extra}` : ''}`
 }
 
 export function previsualizarRevision(hash: string, datos: RevisionInput): Promise<RevisionPreview> {

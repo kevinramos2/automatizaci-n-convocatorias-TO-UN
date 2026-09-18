@@ -12,7 +12,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
   render() {
     if (this.state.error) {
       return (
-        <div className="rounded-lg border p-4" style={{ borderColor: 'var(--to-bad-border)', background: 'var(--to-bad-bg)', color: 'var(--to-bad)' }}>
+        <div className="m-6 h-fit flex-1 rounded-lg border p-4" style={{ borderColor: 'var(--to-bad-border)', background: 'var(--to-bad-bg)', color: 'var(--to-bad)' }}>
           <p className="font-semibold">No se pudo mostrar este aspirante.</p>
           <p className="mt-1 text-sm">{this.state.error.message}</p>
         </div>

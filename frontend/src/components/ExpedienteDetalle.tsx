@@ -1,30 +1,46 @@
-import { useState } from 'react'
-import type { Expediente } from '../api/types'
+import { useEffect, useMemo, useState } from 'react'
+import type { Expediente, ResultadoRegla } from '../api/types'
 import { ErrorAPI } from '../api/client'
 import { useGuardarRevision } from '../hooks/useExpedientes'
-import { OPCIONES_ENTREGA, OPCIONES_RELACIONADO, OPCIONES_VALIDEZ, useRevisionState } from '../hooks/useRevisionState'
+import { useRevisionState } from '../hooks/useRevisionState'
 import { AiBox, ETIQUETA_ESTADO, EstadoBadge, EstadoPill } from './Estado'
-import { RadioGroup } from './RadioGroup'
-import { DocumentoClickeable } from './DocumentoClickeable'
-
-const ETIQUETA_ITEM: Record<string, string> = {
-  formulario: 'Formulario de inscripción',
-  cedula: 'Fotocopia de cédula',
-  estudio: 'Constancia de estudio',
-  laboral: 'Constancias laborales',
-  alturas: 'Certificado de alturas',
-  medica: 'Evaluación médica',
-}
+import { OpcionesGrandes, Tecla, type Opcion } from './OpcionesGrandes'
+import { Visor, type PaginaVisor, type TabVisor } from './Visor'
 
 const MINTRABAJO_CONSULTA_ALTURAS = 'https://app2.mintrabajo.gov.co/CentrosEntrenamiento/consulta_ext.aspx'
 
-function paginasDe(expediente: Expediente, tipo: string): number[] {
-  const doc = expediente.documentos.find((d) => d.tipo === tipo)
-  return doc?.paginas ?? []
-}
+const OPC_ENTREGA: Opcion[] = [
+  { valor: 'Pendiente', tono: 'neutral' },
+  { valor: 'Sí, entregó ambos', tono: 'good' },
+  { valor: 'No, falta alguno', tono: 'bad' },
+]
+const OPC_VALIDEZ: Opcion[] = [
+  { valor: 'Según el sistema', tono: 'neutral' },
+  { valor: 'Sí, válido', tono: 'good' },
+  { valor: 'No es válido', tono: 'bad' },
+]
+const OPC_RELACIONADO: Opcion[] = [
+  { valor: 'SI', etiqueta: 'SÍ', tono: 'good' },
+  { valor: 'NO', etiqueta: 'NO', tono: 'bad' },
+  { valor: 'PENDIENTE', tono: 'neutral' },
+]
 
-// Igual que el .capitalize() de Python que usa app_revision.py para el título de
-// cada documento académico/relacionado cuando no hay "titulo" (ej. "primaria" -> "Primaria").
+// Los 7 pasos, en el orden de app_revision.py + un resumen final antes de guardar.
+const PASOS = [
+  { clave: 'entrega', titulo: 'Formulario de inscripción y cédula' },
+  { clave: 'academica', titulo: 'Información académica' },
+  { clave: 'relacionada', titulo: 'Educación relacionada con el cargo' },
+  { clave: 'laboral', titulo: 'Experiencia laboral relacionada' },
+  { clave: 'alturas', titulo: 'Certificado de alturas' },
+  { clave: 'medica', titulo: 'Evaluación médica' },
+  { clave: 'resumen', titulo: 'Resumen antes de guardar' },
+] as const
+const ETIQUETA_STEPPER = ['Entrega', 'Académica', 'Relacionada', 'Laboral', 'Alturas', 'Médica', 'Resumen']
+const PASO_RESUMEN = PASOS.length - 1
+
+const AMARILLO = '#d9a82b'
+
+// Igual que el .capitalize() de Python que usa app_revision.py cuando no hay "titulo".
 function capitalizar(texto: string): string {
   return texto ? texto.charAt(0).toUpperCase() + texto.slice(1).toLowerCase() : texto
 }
@@ -34,8 +50,7 @@ function textoBooleano(valor: boolean | null): string {
   return valor === null ? 'None' : valor ? 'True' : 'False'
 }
 
-// Las cajas "Resultado del sistema" en Streamlit siempre muestran la etiqueta del
-// estado (CUMPLE/REQUIERE REVISIÓN/NO CUMPLE) seguida del motivo, no solo el motivo.
+// Las cajas "Resultado del sistema" siempre muestran la etiqueta del estado + el motivo.
 function etiquetaEstado(estado: string): string {
   return ETIQUETA_ESTADO[estado] ?? estado.toUpperCase()
 }
@@ -44,6 +59,26 @@ function claveEstado(estadoDecision: string): string {
   if (estadoDecision === 'ADMITIDO') return 'cumple'
   if (estadoDecision === 'NO ADMITIDO') return 'no_cumple'
   return 'requiere_revision_manual'
+}
+
+function peor(estados: string[]): string {
+  if (estados.includes('no_cumple')) return 'no_cumple'
+  if (estados.includes('requiere_revision_manual')) return 'requiere_revision_manual'
+  return 'cumple'
+}
+
+function paginasDeTipo(expediente: Expediente, tipo: string): number[] {
+  return expediente.documentos.find((d) => d.tipo === tipo)?.paginas ?? []
+}
+
+function aPaginas(paginas: number[] | undefined, etiqueta: string | null): PaginaVisor[] {
+  return (paginas ?? []).map((pagina, i) => ({ pagina, etiqueta, inicioDoc: i === 0 }))
+}
+
+interface Control {
+  opciones: Opcion[]
+  valor: string
+  cambiar: (v: string) => void
 }
 
 export function ExpedienteDetalle({
@@ -56,374 +91,433 @@ export function ExpedienteDetalle({
   const { estado, set, setEnMapa, preview } = useRevisionState(expediente)
   const guardar = useGuardarRevision(expediente._hash)
   const [mensajeError, setMensajeError] = useState<string | null>(null)
+  const [paso, setPaso] = useState(0)
+  const [itemIdx, setItemIdx] = useState(0)
+  const [visitados, setVisitados] = useState<Set<number>>(() => new Set([0]))
 
   const hash = expediente._hash
   const { formulario, cedula, estudios, laborales, alturas, medica } = expediente
 
+  const idxAcademicos = expediente.indices_academicos
+  const idxRelacionados = useMemo(
+    () => estudios.map((_, i) => i).filter((i) => !idxAcademicos.includes(i)),
+    [estudios, idxAcademicos],
+  )
+
   const estadoHeader = expediente.estado_confirmado_por_humano || expediente.decision.estado_sugerido
-
-  const indicesRelacionados = estudios.map((_, i) => i).filter((i) => !expediente.indices_academicos.includes(i))
-
   const estadoFinal = preview?.decision_actualizada.estado_sugerido ?? 'PENDIENTE DE REVISIÓN'
+  const causalFinal = preview?.decision_actualizada.causal_sugerida ?? null
   const decisionFinal = estadoFinal === 'ADMITIDO' || estadoFinal === 'NO ADMITIDO'
+
+  // Cuántos ítems tiene cada paso (el resumen no tiene).
+  function nItems(p: number): number {
+    if (p === 0) return 1
+    if (p === 1) return idxAcademicos.length
+    if (p === 2) return idxRelacionados.length
+    if (p === 3) return laborales.length
+    if (p === 4) return alturas?.aportado ? 1 : 0
+    if (p === 5) return medica?.aportado ? 1 : 0
+    return 0
+  }
+
+  function irA(p: number, i = 0) {
+    setPaso(p)
+    setItemIdx(i)
+    setVisitados((v) => new Set(v).add(p))
+  }
+  function siguiente() {
+    if (itemIdx < nItems(paso) - 1) setItemIdx(itemIdx + 1)
+    else if (paso < PASO_RESUMEN) irA(paso + 1)
+  }
+  function anterior() {
+    if (itemIdx > 0) setItemIdx(itemIdx - 1)
+    else if (paso > 0) irA(paso - 1, Math.max(nItems(paso - 1) - 1, 0))
+  }
+
+  // ---- ¿Qué paso está resuelto? (para el avance y los puntos de las pestañas) ----
+  const decidido = (mapa: Record<string, string>, i: number) => (mapa[i] ?? 'PENDIENTE') !== 'PENDIENTE'
+  // Un paso cuenta como resuelto cuando ya se vio y su resultado (recalculado con las
+  // respuestas del revisor) ya no está en "requiere revisión".
+  const resultadosVivos = preview?.resultados_actualizados ?? expediente.resultados_validacion
+  function hecho(p: number): boolean {
+    if (p === PASO_RESUMEN) return decisionFinal
+    if (p === 2) return visitados.has(2) && idxRelacionados.every((i) => decidido(estado.decisiones_relacionado_estudio, i))
+    const r = resultadosVivos
+    const est = p === 0 ? peor([r.formulario.estado, r.cedula.estado]) : r[['formulario', 'estudio', '', 'laboral', 'alturas', 'medica'][p]].estado
+    return visitados.has(p) && est !== 'requiere_revision_manual'
+  }
+
+  // ---- Visor: pestañas por documento, ligadas al paso actual ----
+  const colorTab = (pasos: number[]) =>
+    pasos.every((p) => p !== paso && hecho(p)) ? 'var(--to-good)' : pasos.includes(paso) ? AMARILLO : 'var(--to-border)'
+
+  const tabs: TabVisor[] = useMemo(
+    () => [
+      { clave: 'formulario', label: 'Formulario', color: '', paginas: aPaginas(paginasDeTipo(expediente, 'formulario_inscripcion'), 'Formulario') },
+      { clave: 'cedula', label: 'Cédula', color: '', paginas: aPaginas(paginasDeTipo(expediente, 'cedula'), 'Cédula') },
+      {
+        clave: 'estudios',
+        label: 'Estudios',
+        color: '',
+        paginas: estudios.flatMap((e) => aPaginas(e.paginas, e.titulo || e.nombre_curso || capitalizar(e.nivel ?? 'Estudio'))),
+      },
+      { clave: 'laboral', label: 'Laboral', color: '', paginas: laborales.flatMap((l) => aPaginas(l.paginas, l.cargo || l.entidad)) },
+      { clave: 'alturas', label: 'Alturas', color: '', paginas: aPaginas(alturas?.paginas, 'Certificado de alturas') },
+      { clave: 'medica', label: 'Médica', color: '', paginas: aPaginas(medica?.paginas, 'Evaluación médica') },
+    ],
+    [expediente, estudios, laborales, alturas, medica],
+  )
+  const pasosDeTab: Record<string, number[]> = { formulario: [0], cedula: [0], estudios: [1, 2], laboral: [3], alturas: [4], medica: [5] }
+  const tabsConColor = tabs.map((t) => ({ ...t, color: colorTab(pasosDeTab[t.clave]) }))
+
+  const [tab, setTab] = useState('formulario')
+  const [pagina, setPagina] = useState<number | null>(tabs[0].paginas[0]?.pagina ?? tabs[1].paginas[0]?.pagina ?? null)
+
+  function elegirTab(clave: string) {
+    setTab(clave)
+    setPagina(tabs.find((t) => t.clave === clave)?.paginas[0]?.pagina ?? null)
+  }
+
+  // Al cambiar de paso/ítem, el visor salta al documento correspondiente.
+  useEffect(() => {
+    const foco = ((): { tab: string; pagina?: number } | null => {
+      if (paso === 0) return { tab: 'formulario', pagina: tabs[0].paginas[0]?.pagina ?? tabs[1].paginas[0]?.pagina }
+      if (paso === 1) return { tab: 'estudios', pagina: estudios[idxAcademicos[itemIdx]]?.paginas?.[0] }
+      if (paso === 2) return { tab: 'estudios', pagina: estudios[idxRelacionados[itemIdx]]?.paginas?.[0] }
+      if (paso === 3) return { tab: 'laboral', pagina: laborales[itemIdx]?.paginas?.[0] }
+      if (paso === 4) return { tab: 'alturas', pagina: alturas?.paginas?.[0] }
+      if (paso === 5) return { tab: 'medica', pagina: medica?.paginas?.[0] }
+      return null
+    })()
+    if (foco) {
+      setTab(foco.tab)
+      setPagina(foco.pagina ?? tabs.find((t) => t.clave === foco.tab)?.paginas[0]?.pagina ?? null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paso, itemIdx])
+
+  // ---- Control (opciones) del ítem actual: lo usan la tarjeta y los atajos 1/2/3 ----
+  const control: Control | null = (() => {
+    if (paso === 0) return { opciones: OPC_ENTREGA, valor: estado.entrega_verificada, cambiar: (v) => set('entrega_verificada', v) }
+    if (paso === 1 && idxAcademicos.length) {
+      const i = idxAcademicos[itemIdx]
+      return { opciones: OPC_VALIDEZ, valor: estado.overrides_academicos[i] ?? 'Según el sistema', cambiar: (v) => setEnMapa('overrides_academicos', i, v) }
+    }
+    if (paso === 2 && idxRelacionados.length) {
+      const i = idxRelacionados[itemIdx]
+      return { opciones: OPC_RELACIONADO, valor: estado.decisiones_relacionado_estudio[i] ?? 'PENDIENTE', cambiar: (v) => setEnMapa('decisiones_relacionado_estudio', i, v) }
+    }
+    if (paso === 3 && laborales.length) {
+      return { opciones: OPC_RELACIONADO, valor: estado.decisiones_relacionado_laboral[itemIdx] ?? 'PENDIENTE', cambiar: (v) => setEnMapa('decisiones_relacionado_laboral', itemIdx, v) }
+    }
+    if (paso === 4 && alturas?.aportado) return { opciones: OPC_VALIDEZ, valor: estado.alturas_override, cambiar: (v) => set('alturas_override', v) }
+    if (paso === 5 && medica?.aportado) return { opciones: OPC_VALIDEZ, valor: estado.medica_override, cambiar: (v) => set('medica_override', v) }
+    return null
+  })()
+
+  // Atajos: ← → cambian de ítem/paso; 1/2/3 responden (no se activan al escribir en un campo).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const el = e.target as HTMLElement | null
+      const escribiendo = el && ((el.tagName === 'INPUT' && (el as HTMLInputElement).type !== 'radio') || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')
+      if (escribiendo || e.ctrlKey || e.metaKey || e.altKey) return
+      if (e.key === 'ArrowRight') siguiente()
+      else if (e.key === 'ArrowLeft') anterior()
+      else if (control && ['1', '2', '3'].includes(e.key)) {
+        const o = control.opciones[Number(e.key) - 1]
+        if (o) control.cambiar(o.valor)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
 
   async function manejarGuardar() {
     setMensajeError(null)
     try {
       const r = await guardar.mutateAsync(estado)
-      // Igual que Streamlit tras guardar: se quita al aspirante de la vista y
-      // queda la pantalla de "elige un aspirante" (el padre muestra el aviso).
+      // Igual que Streamlit tras guardar: se quita al aspirante de la vista y queda
+      // la pantalla de "elige un aspirante" (el padre muestra el aviso).
       onGuardado(r.estado_final)
     } catch (e) {
       setMensajeError(e instanceof ErrorAPI ? e.message : 'No se pudo guardar la revisión.')
     }
   }
 
-  return (
-    <div className="flex max-w-4xl flex-col gap-8">
-      {/* Encabezado */}
-      <div className="flex flex-wrap items-start justify-between gap-5">
-        <div className="flex min-w-0 flex-col gap-1">
-          <span className="text-xs font-semibold tracking-wide uppercase" style={{ color: 'var(--to-ink-faint)' }}>
-            Aspirante
-          </span>
-          <span className="text-[26px] font-bold" style={{ color: 'var(--to-ink)' }}>
-            {(formulario.nombre || '—').toUpperCase()}
-          </span>
-          <span className="font-mono-to text-[14.5px]" style={{ color: 'var(--to-ink-muted)' }}>
-            C.C. {cedula.numero || '—'}
-          </span>
-        </div>
-        <EstadoBadge estado={claveEstado(estadoHeader)} texto={estadoHeader} />
-      </div>
+  // ---- Piezas del panel ----
+  const rvs = expediente.resultados_validacion
+  const cajaSistema = (r: ResultadoRegla) => <AiBox label="Resultado del sistema" valor={etiquetaEstado(r.estado)} motivo={r.motivo} />
 
-      {expediente.inconsistencias.length > 0 && (
-        <div className="rounded-lg border px-4 py-3" style={{ borderColor: 'var(--to-warn-border)', background: 'var(--to-warn-bg)' }}>
-          <p className="mb-2 font-semibold" style={{ color: 'var(--to-warn)' }}>
-            {expediente.inconsistencias.length} inconsistencia(s) detectada(s) automáticamente
-          </p>
-          {expediente.inconsistencias.map((inc, i) => (
-            <p key={i} className="text-sm" style={{ color: 'var(--to-ink)' }}>
-              {inc.detalle}
-            </p>
+  const listaItems = (titulo: string, etiquetas: string[], hechoDe: (n: number) => boolean) =>
+    etiquetas.length > 1 && (
+      <>
+        <div className="h-px" style={{ background: 'var(--to-border)' }} />
+        <div className="text-[11.5px] font-bold tracking-wide uppercase" style={{ color: 'var(--to-ink-muted)' }}>
+          {titulo} · {itemIdx + 1} de {etiquetas.length}
+        </div>
+        <div className="flex flex-col gap-0.5">
+          {etiquetas.map((t, n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setItemIdx(n)}
+              className="flex items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left"
+              style={{
+                background: n === itemIdx ? 'var(--to-accent-tint)' : 'transparent',
+                borderColor: n === itemIdx ? 'var(--to-accent-tint-border)' : 'transparent',
+              }}
+            >
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: hechoDe(n) ? 'var(--to-good)' : 'var(--to-border)' }} />
+              <span className="flex-1 text-[13px]" style={{ fontWeight: n === itemIdx ? 600 : 500, color: 'var(--to-ink)' }}>{t}</span>
+              <span className="text-xs" style={{ color: 'var(--to-ink-muted)' }}>{hechoDe(n) ? 'Confirmado' : 'Por confirmar'}</span>
+            </button>
           ))}
         </div>
-      )}
+      </>
+    )
 
-      {/* Checklist de admisión */}
-      <section>
-        <h2 className="mb-3 text-xl font-bold" style={{ color: 'var(--to-ink)' }}>
-          Checklist de admisión
-        </h2>
+  const pregunta = (texto: string) => (
+    <>
+      <div className="text-[14.5px] font-semibold" style={{ color: 'var(--to-ink)' }}>{texto}</div>
+      {control && <OpcionesGrandes name={`p${paso}_${itemIdx}`} opciones={control.opciones} valor={control.valor} onChange={control.cambiar} />}
+    </>
+  )
+  const titulo = (t: string, sub?: string | null) => (
+    <div>
+      <div className="text-[22px] leading-tight font-bold" style={{ color: 'var(--to-ink)' }}>{t}</div>
+      {sub ? <div className="mt-1 text-[13.5px]" style={{ color: 'var(--to-ink-muted)' }}>{sub}</div> : null}
+    </div>
+  )
+  const vacio = (texto: string) => (
+    <p className="rounded-lg border p-4 text-sm" style={{ borderColor: 'var(--to-border)', color: 'var(--to-ink-muted)', background: 'var(--to-surface)' }}>{texto}</p>
+  )
+
+  function cuerpoPaso() {
+    if (paso === 0) {
+      return (
+        <>
+          {titulo('Formulario de inscripción y cédula', 'Según la lista de chequeo: confirma que el aspirante entregó el formulario de inscripción y la fotocopia de la cédula. Nunca se confirma automáticamente.')}
+          {cajaSistema(rvs.formulario)}
+          {cajaSistema(rvs.cedula)}
+          {pregunta('¿Entregó el formulario de inscripción y la fotocopia de la cédula?')}
+        </>
+      )
+    }
+    if (paso === 1) {
+      if (!idxAcademicos.length) return vacio('No se aportó información académica del colegio (acta de grado o diploma de bachiller).')
+      const e = estudios[idxAcademicos[itemIdx]]
+      return (
+        <>
+          {titulo(e.titulo || capitalizar(e.nivel ?? '—'), [e.institucion, e.fecha_terminacion || e.fecha_fin].filter(Boolean).join(' · '))}
+          <p className="text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
+            Solo el colegio (primaria/secundaria) — acta de grado y diploma de bachiller. Cada documento se valida por separado.
+          </p>
+          {cajaSistema(rvs.estudio)}
+          {pregunta('¿Es válido este documento?')}
+          {listaItems('Documentos del colegio', idxAcademicos.map((i) => estudios[i].titulo || capitalizar(estudios[i].nivel ?? '—')), (n) => (estado.overrides_academicos[idxAcademicos[n]] ?? 'Según el sistema') !== 'Según el sistema')}
+        </>
+      )
+    }
+    if (paso === 2) {
+      if (!idxRelacionados.length) return vacio('No se aportaron cursos, técnicos u otra formación adicional.')
+      const e = estudios[idxRelacionados[itemIdx]]
+      const esCurso = (e.nivel || '').toLowerCase() === 'curso_capacitacion'
+      const meta = [e.institucion, e.horas ? `${e.horas} horas` : null].filter(Boolean).join(' · ')
+      return (
+        <>
+          {titulo(esCurso ? `Curso: ${e.nombre_curso || '—'}` : e.titulo || capitalizar(e.nivel ?? '—'), meta)}
+          {e.relacionado_sugerido && <AiBox label="Sugerencia de la IA" valor={e.relacionado_sugerido} motivo={e.justificacion_relacionado} />}
+          {pregunta('¿Está relacionado con el cargo?')}
+          {listaItems('Formación de este aspirante', idxRelacionados.map((i) => estudios[i].nombre_curso || estudios[i].titulo || capitalizar(estudios[i].nivel ?? '—')), (n) => decidido(estado.decisiones_relacionado_estudio, idxRelacionados[n]))}
+        </>
+      )
+    }
+    if (paso === 3) {
+      if (!laborales.length) return vacio('No se aportaron constancias laborales.')
+      const l = laborales[itemIdx]
+      return (
+        <>
+          {titulo(`${l.cargo || '—'} en ${l.entidad || '—'}`, `${l.fecha_inicio || '?'} → ${l.fecha_fin || 'a la fecha'}`)}
+          {l.funciones && <p className="text-[13px] leading-relaxed" style={{ color: 'var(--to-ink-muted)' }}>{l.funciones}</p>}
+          {l.relacionado_sugerido && <AiBox label="Sugerencia de la IA" valor={l.relacionado_sugerido} motivo={l.justificacion_relacionado} />}
+          {pregunta('¿Relacionada con el cargo?')}
+          {listaItems('Experiencias de este aspirante', laborales.map((x) => `${x.cargo || '—'} · ${x.entidad || '—'}`), (n) => decidido(estado.decisiones_relacionado_laboral, n))}
+          {cajaSistema(rvs.laboral)}
+          {expediente.inconsistencias.length > 0 && (
+            <div className="rounded-lg border px-3.5 py-3" style={{ borderColor: 'var(--to-warn-border)', background: 'var(--to-warn-bg)' }}>
+              <p className="mb-1.5 text-[13px] font-semibold" style={{ color: 'var(--to-warn)' }}>
+                {expediente.inconsistencias.length} inconsistencia(s) detectada(s) automáticamente
+              </p>
+              {expediente.inconsistencias.map((inc, i) => (
+                <p key={i} className="text-[13px]" style={{ color: 'var(--to-ink)' }}>{inc.detalle}</p>
+              ))}
+            </div>
+          )}
+        </>
+      )
+    }
+    if (paso === 4) {
+      if (!alturas?.aportado) return vacio('No se aportó certificado de trabajo seguro en alturas.')
+      return (
+        <>
+          {titulo('Certificado de alturas', `${alturas.entidad_emisora || '—'} · Expedición: ${alturas.fecha_expedicion || '—'} · Vencimiento: ${alturas.fecha_vencimiento || '—'}`)}
+          <p className="text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
+            El sistema calcula esto de las fechas extraídas, y a veces se equivoca leyendo el documento — revisa la imagen antes de confirmar.
+          </p>
+          {cajaSistema(rvs.alturas)}
+          <div>
+            <a href={MINTRABAJO_CONSULTA_ALTURAS} target="_blank" rel="noreferrer" className="inline-block rounded-md border px-3 py-1.5 text-sm font-medium" style={{ borderColor: 'var(--to-border)', background: 'var(--to-surface-2)', color: 'var(--to-ink)' }}>
+              Verificar en el Ministerio del Trabajo ↗
+            </a>
+            <p className="mt-1 text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>Busca con la cédula {cedula.numero || '—'} antes de marcar válido o no válido.</p>
+          </div>
+          {pregunta('¿Es válido el certificado de alturas al cierre de inscripción?')}
+        </>
+      )
+    }
+    if (paso === 5) {
+      if (!medica?.aportado) return vacio('No se aportó evaluación médica ocupacional.')
+      return (
+        <>
+          {titulo('Evaluación médica', `${medica.entidad_emisora || '—'} · Expedición: ${medica.fecha_expedicion || '—'} · Concepto de aptitud en alturas: ${textoBooleano(medica.concepto_aptitud_alturas)}`)}
+          {cajaSistema(rvs.medica)}
+          {pregunta('¿Es válida la evaluación médica?')}
+        </>
+      )
+    }
+    // Resumen
+    const res = preview?.resultados_actualizados ?? rvs
+    const nRel = idxRelacionados.length
+    const nSi = idxRelacionados.filter((i) => estado.decisiones_relacionado_estudio[i] === 'SI').length
+    const filas: { paso: number; titulo: string; estado: string; detalle: string }[] = [
+      { paso: 0, titulo: 'Formulario y cédula', estado: peor([res.formulario.estado, res.cedula.estado]), detalle: res.formulario.motivo },
+      { paso: 1, titulo: 'Información académica', estado: res.estudio.estado, detalle: res.estudio.motivo },
+      { paso: 2, titulo: 'Educación relacionada', estado: hecho(2) ? 'cumple' : 'requiere_revision_manual', detalle: nRel ? `${nSi} de ${nRel} relacionados con el cargo` : 'No se aportó formación adicional' },
+      { paso: 3, titulo: 'Experiencia laboral', estado: res.laboral.estado, detalle: res.laboral.motivo },
+      { paso: 4, titulo: 'Certificado de alturas', estado: res.alturas.estado, detalle: res.alturas.motivo },
+      { paso: 5, titulo: 'Evaluación médica', estado: res.medica.estado, detalle: res.medica.motivo },
+    ]
+    return (
+      <>
+        {titulo('Resumen antes de guardar', 'Revisa cada ítem; con «Editar» vuelves a cualquiera.')}
         <div className="flex flex-col gap-2">
-          {Object.entries(expediente.resultados_validacion).map(([clave, r], i) => (
-            <div key={clave} className="flex gap-3.5 rounded-[10px] border px-4.5 py-3.5" style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)' }}>
-              <span className="font-mono-to pt-0.5 text-[12.5px]" style={{ color: 'var(--to-ink-faint)' }}>
-                {String(i + 1).padStart(2, '0')}
-              </span>
+          {filas.map((f, n) => (
+            <div key={f.paso} className="flex items-center gap-3 rounded-[10px] border px-3.5 py-2.5" style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)' }}>
+              <span className="font-mono-to text-xs" style={{ color: 'var(--to-ink-muted)' }}>{String(n + 1).padStart(2, '0')}</span>
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <span className="text-[14.5px] font-semibold" style={{ color: 'var(--to-ink)' }}>
-                    {ETIQUETA_ITEM[clave] ?? clave}
-                  </span>
-                  <EstadoPill estado={r.estado} />
-                </div>
-                <p className="mt-0.5 text-[13px] leading-relaxed" style={{ color: 'var(--to-ink-muted)' }}>
-                  {r.motivo}
-                </p>
+                <div className="text-[13.5px] font-semibold" style={{ color: 'var(--to-ink)' }}>{f.titulo}</div>
+                <div className="text-xs" style={{ color: 'var(--to-ink-muted)' }}>{f.detalle}</div>
               </div>
+              <EstadoPill estado={f.estado} />
+              <button type="button" onClick={() => irA(f.paso)} className="text-[12.5px] font-semibold underline" style={{ color: 'var(--to-accent)' }}>Editar</button>
             </div>
           ))}
         </div>
-      </section>
+      </>
+    )
+  }
 
-      {/* Firma */}
-      <section>
-        <h2 className="mb-1 text-xl font-bold" style={{ color: 'var(--to-ink)' }}>
-          Confirmar formulario de inscripción y cédula
-        </h2>
-        <p className="mb-3 text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
-          Según la lista de chequeo: confirma que el aspirante entregó el formulario de inscripción y la fotocopia de la
-          cédula. Nunca se confirma automáticamente.
-        </p>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            {paginasDe(expediente, 'formulario_inscripcion').length > 1 ? (
-              <p className="mb-1 text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
-                Formulario de inscripción — clic en la imagen para ver las {paginasDe(expediente, 'formulario_inscripcion').length} páginas
-              </p>
-            ) : (
-              <p className="mb-1 text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
-                Formulario de inscripción
-              </p>
-            )}
-            <DocumentoClickeable hash={hash} paginas={paginasDe(expediente, 'formulario_inscripcion')} />
-          </div>
-          <div>
-            <p className="mb-1 text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>Cédula</p>
-            <DocumentoClickeable hash={hash} paginas={paginasDe(expediente, 'cedula')} />
-          </div>
-        </div>
-        <RadioGroup
-          name="entrega"
-          label="¿Entregó el formulario de inscripción y la fotocopia de la cédula?"
-          opciones={OPCIONES_ENTREGA}
-          valor={estado.entrega_verificada}
-          onChange={(v) => set('entrega_verificada', v)}
-        />
-      </section>
+  return (
+    <>
+      <Visor hash={hash} tabs={tabsConColor} tab={tab} onTab={elegirTab} pagina={pagina} onPagina={setPagina} />
 
-      {/* Información académica */}
-      <section>
-        <h2 className="mb-1 text-xl font-bold" style={{ color: 'var(--to-ink)' }}>
-          Confirmar información académica
-        </h2>
-        <p className="mb-3 text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
-          Solo el colegio (primaria/secundaria) — acta de grado y diploma de bachiller. Acreditan el nivel mínimo de
-          educación exigido. Cada documento se valida por separado.
-        </p>
-        {expediente.indices_academicos.length === 0 ? (
-          <p className="text-sm" style={{ color: 'var(--to-ink-muted)' }}>
-            No se aportó información académica del colegio (acta de grado o diploma de bachiller).
-          </p>
-        ) : (
-          <>
-            <AiBox
-              label="Resultado del sistema"
-              valor={etiquetaEstado(expediente.resultados_validacion.estudio.estado)}
-              motivo={expediente.resultados_validacion.estudio.motivo}
-            />
-            <div className="flex flex-col gap-3">
-              {expediente.indices_academicos.map((i) => {
-                const e = estudios[i]
-                return (
-                  <div key={i} className="grid grid-cols-[2fr_1fr] gap-4 rounded-lg border p-4" style={{ borderColor: 'var(--to-border)' }}>
-                    <div>
-                      <p className="font-semibold" style={{ color: 'var(--to-ink)' }}>
-                        {e.titulo || capitalizar(e.nivel ?? '—')} — <em>{e.institucion || '—'}</em>
-                      </p>
-                      <p className="text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
-                        {e.fecha_terminacion || e.fecha_fin || ''}
-                      </p>
-                      <RadioGroup
-                        name={`estudio_val_${i}`}
-                        label="¿Es válido este documento?"
-                        opciones={OPCIONES_VALIDEZ}
-                        valor={estado.overrides_academicos[i] ?? OPCIONES_VALIDEZ[0]}
-                        onChange={(v) => setEnMapa('overrides_academicos', i, v)}
-                      />
-                    </div>
-                    <DocumentoClickeable hash={hash} paginas={e.paginas} etiqueta={e.titulo || e.nivel} />
-                  </div>
-                )
-              })}
+      <aside className="flex w-[460px] shrink-0 flex-col border-l" style={{ background: 'var(--to-bg)', borderColor: 'var(--to-border)' }}>
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[11px] font-bold tracking-wide uppercase" style={{ color: 'var(--to-ink-muted)' }}>Aspirante</div>
+              <div className="text-[19px] leading-tight font-bold" style={{ color: 'var(--to-ink)' }}>{(formulario.nombre || '—').toUpperCase()}</div>
+              <div className="font-mono-to text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>C.C. {cedula.numero || '—'}</div>
             </div>
-          </>
-        )}
-      </section>
+            <EstadoBadge estado={claveEstado(estadoHeader)} texto={estadoHeader} />
+          </div>
 
-      {/* Educación relacionada */}
-      <section>
-        <h2 className="mb-1 text-xl font-bold" style={{ color: 'var(--to-ink)' }}>
-          Confirmar educación relacionada con las funciones del cargo
-        </h2>
-        <p className="mb-3 text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
-          Cursos, técnicos, tecnólogos u otra formación adicional — distintos de la información académica del
-          colegio. El sistema sugiere SI/NO, pero nunca decide solo.
-        </p>
-        {indicesRelacionados.length === 0 ? (
-          <p className="text-sm" style={{ color: 'var(--to-ink-muted)' }}>
-            No se aportaron cursos, técnicos u otra formación adicional.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {indicesRelacionados.map((i) => {
-              const e = estudios[i]
-              const esCurso = (e.nivel || '').toLowerCase() === 'curso_capacitacion'
+          <nav aria-label="Pasos de la revisión" className="flex items-center gap-1.5">
+            {PASOS.map((p, i) => {
+              const actual = i === paso
+              const ok = !actual && hecho(i) && (visitados.has(i) || i === PASO_RESUMEN)
               return (
-                <div key={i} className="grid grid-cols-[2fr_1fr] gap-4 rounded-lg border p-4" style={{ borderColor: 'var(--to-border)' }}>
-                  <div>
-                    <p className="font-semibold" style={{ color: 'var(--to-ink)' }}>
-                      {esCurso ? (
-                        <>Curso: {e.nombre_curso || '—'} — <em>{e.institucion || '—'}</em></>
-                      ) : (
-                        <>{e.titulo || capitalizar(e.nivel ?? '—')} — <em>{e.institucion || '—'}</em></>
-                      )}
-                    </p>
-                    {e.relacionado_sugerido && (
-                      <AiBox label="Sugerencia de la IA" valor={e.relacionado_sugerido} motivo={e.justificacion_relacionado} />
-                    )}
-                    <RadioGroup
-                      name={`estudio_rel_${i}`}
-                      label="¿Relacionado con el cargo?"
-                      opciones={OPCIONES_RELACIONADO}
-                      valor={estado.decisiones_relacionado_estudio[i] ?? 'PENDIENTE'}
-                      onChange={(v) => setEnMapa('decisiones_relacionado_estudio', i, v)}
-                    />
-                  </div>
-                  <DocumentoClickeable hash={hash} paginas={e.paginas} etiqueta={e.titulo || e.nombre_curso} />
+                <div key={p.clave} className="flex flex-1 items-center gap-1.5 last:flex-none">
+                  <button
+                    type="button"
+                    onClick={() => irA(i)}
+                    aria-label={`Paso ${i + 1}: ${ETIQUETA_STEPPER[i]}`}
+                    aria-current={actual ? 'step' : undefined}
+                    title={ETIQUETA_STEPPER[i]}
+                    className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full text-[13px] font-bold"
+                    style={
+                      actual
+                        ? { background: 'var(--to-accent)', color: 'var(--to-bg)', boxShadow: '0 0 0 4px var(--to-accent-tint-border)' }
+                        : ok
+                          ? { background: 'var(--to-good)', color: 'var(--to-bg)' }
+                          : { background: 'var(--to-surface)', color: 'var(--to-ink-muted)', border: '1.5px solid var(--to-border)' }
+                    }
+                  >
+                    {ok ? '✓' : i + 1}
+                  </button>
+                  {i < PASOS.length - 1 && <div className="h-0.5 flex-1" style={{ background: i < paso ? 'var(--to-good)' : 'var(--to-border)' }} />}
                 </div>
               )
             })}
-          </div>
-        )}
-      </section>
+          </nav>
 
-      {/* Experiencia laboral relacionada */}
-      <section>
-        <h2 className="mb-1 text-xl font-bold" style={{ color: 'var(--to-ink)' }}>
-          Confirmar experiencia laboral relacionada con el cargo
-        </h2>
-        <p className="mb-3 text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
-          El sistema sugiere SI/NO, pero nunca decide solo — confirma o corrige cada una.
-        </p>
-        <div className="flex flex-col gap-3">
-          {laborales.map((exp, i) => (
-            <div key={i} className="grid grid-cols-[2fr_1fr] gap-4 rounded-lg border p-4" style={{ borderColor: 'var(--to-border)' }}>
-              <div>
-                <p className="font-semibold" style={{ color: 'var(--to-ink)' }}>
-                  {exp.cargo || '—'} en <em>{exp.entidad || '—'}</em>
+          <div className="text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--to-accent)' }}>
+            Paso {paso + 1} de {PASOS.length} · {PASOS[paso].titulo}
+          </div>
+
+          <div className="flex flex-col gap-3.5">{cuerpoPaso()}</div>
+        </div>
+
+        <div className="flex flex-col gap-2.5 border-t px-5 py-3.5" style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)' }}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-[12.5px] font-bold" style={{ color: 'var(--to-ink)' }}>Decisión con tu revisión</div>
+            <EstadoBadge estado={claveEstado(estadoFinal)} texto={estadoFinal} />
+          </div>
+          {paso === PASO_RESUMEN && causalFinal && <p className="text-xs" style={{ color: 'var(--to-ink-muted)' }}>{causalFinal}</p>}
+
+          {paso === PASO_RESUMEN ? (
+            <>
+              {!decisionFinal && (
+                <p className="text-[12.5px]" style={{ color: 'var(--to-ink-muted)' }}>
+                  Todavía hay ítems pendientes de confirmar (entrega, relacionado, alturas, médica) — resuélvelos para poder guardar una decisión final.
                 </p>
-                <p className="text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>{exp.funciones}</p>
-                <p className="text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
-                  {exp.fecha_inicio || '?'} → {exp.fecha_fin || 'a la fecha'}
-                </p>
-                {exp.relacionado_sugerido && (
-                  <AiBox label="Sugerencia de la IA" valor={exp.relacionado_sugerido} motivo={exp.justificacion_relacionado} />
-                )}
-                <RadioGroup
-                  name={`laboral_rel_${i}`}
-                  label="¿Relacionada con el cargo?"
-                  opciones={OPCIONES_RELACIONADO}
-                  valor={estado.decisiones_relacionado_laboral[i] ?? 'PENDIENTE'}
-                  onChange={(v) => setEnMapa('decisiones_relacionado_laboral', i, v)}
+              )}
+              <label className="flex flex-col gap-1 text-xs font-semibold" style={{ color: 'var(--to-ink)' }}>
+                Tu nombre (queda registrado en la auditoría)
+                <input
+                  type="text"
+                  value={estado.revisado_por}
+                  onChange={(e) => set('revisado_por', e.target.value)}
+                  className="h-[38px] rounded-lg border px-3 text-sm font-normal"
+                  style={{ borderColor: 'var(--to-border)', background: 'var(--to-surface)', color: 'var(--to-ink)' }}
                 />
+              </label>
+              <div className="flex gap-2.5">
+                <button type="button" onClick={anterior} className="h-10 shrink-0 rounded-lg border px-4 text-sm font-semibold" style={{ borderColor: 'var(--to-border)', background: 'var(--to-surface)', color: 'var(--to-ink)' }}>← Anterior</button>
+                <button
+                  type="button"
+                  disabled={!estado.revisado_por.trim() || !decisionFinal || guardar.isPending}
+                  onClick={manejarGuardar}
+                  className="h-10 flex-1 rounded-lg text-sm font-semibold disabled:opacity-50"
+                  style={{ background: 'var(--to-accent)', color: 'var(--to-bg)' }}
+                >
+                  {guardar.isPending ? 'Guardando…' : 'Guardar revisión en Google Sheets'}
+                </button>
               </div>
-              <DocumentoClickeable hash={hash} paginas={exp.paginas} />
+              <p className="text-xs" style={{ color: 'var(--to-ink-muted)' }}>Al guardar, vuelves a la lista de aspirantes.</p>
+              {mensajeError && <p className="text-sm" style={{ color: 'var(--to-bad)' }}>{mensajeError}</p>}
+            </>
+          ) : (
+            <div className="flex items-center gap-2.5">
+              <button type="button" onClick={anterior} disabled={paso === 0 && itemIdx === 0} className="h-10 shrink-0 rounded-lg border px-4 text-sm font-semibold disabled:opacity-40" style={{ borderColor: 'var(--to-border)', background: 'var(--to-surface)', color: 'var(--to-ink)' }}>← Anterior</button>
+              <div className="flex flex-1 items-center justify-center gap-1.5" aria-hidden="true">
+                <Tecla>←</Tecla><Tecla>→</Tecla><Tecla>1</Tecla><Tecla>2</Tecla><Tecla>3</Tecla>
+              </div>
+              <button type="button" onClick={siguiente} className="h-10 shrink-0 rounded-lg px-4 text-sm font-semibold" style={{ background: 'var(--to-accent)', color: 'var(--to-bg)' }}>Siguiente →</button>
             </div>
-          ))}
+          )}
         </div>
-      </section>
-
-      {/* Alturas y médica */}
-      <section>
-        <h2 className="mb-1 text-xl font-bold" style={{ color: 'var(--to-ink)' }}>
-          Confirmar certificado de alturas y evaluación médica
-        </h2>
-        <p className="mb-3 text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
-          El sistema calcula esto de las fechas extraídas, y a veces se equivoca leyendo el documento — revisa la
-          imagen antes de confirmar.
-        </p>
-
-        {alturas?.aportado && (
-          <div className="mb-3 grid grid-cols-[2fr_1fr] gap-4 rounded-lg border p-4" style={{ borderColor: 'var(--to-border)' }}>
-            <div>
-              <p className="font-semibold" style={{ color: 'var(--to-ink)' }}>
-                Certificado de alturas — <em>{alturas.entidad_emisora || '—'}</em>
-              </p>
-              <p className="text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
-                Expedición: {alturas.fecha_expedicion || '—'} · Vencimiento: {alturas.fecha_vencimiento || '—'}
-              </p>
-              <AiBox
-                label="Resultado del sistema"
-                valor={etiquetaEstado(expediente.resultados_validacion.alturas.estado)}
-                motivo={expediente.resultados_validacion.alturas.motivo}
-              />
-              <a
-                href={MINTRABAJO_CONSULTA_ALTURAS}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-1 inline-block rounded-md border px-3 py-1.5 text-sm font-medium"
-                style={{ borderColor: 'var(--to-border)', background: 'var(--to-surface-2)' }}
-              >
-                Verificar en el Ministerio del Trabajo ↗
-              </a>
-              <p className="mt-1 text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
-                Busca con la cédula {cedula.numero || '—'} antes de marcar válido o no válido.
-              </p>
-              <RadioGroup
-                name="alturas_val"
-                label="¿Es válido el certificado de alturas al cierre de inscripción?"
-                opciones={OPCIONES_VALIDEZ}
-                valor={estado.alturas_override}
-                onChange={(v) => set('alturas_override', v)}
-              />
-            </div>
-            <DocumentoClickeable hash={hash} paginas={alturas.paginas} />
-          </div>
-        )}
-
-        {medica?.aportado && (
-          <div className="grid grid-cols-[2fr_1fr] gap-4 rounded-lg border p-4" style={{ borderColor: 'var(--to-border)' }}>
-            <div>
-              <p className="font-semibold" style={{ color: 'var(--to-ink)' }}>
-                Evaluación médica — <em>{medica.entidad_emisora || '—'}</em>
-              </p>
-              <p className="text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
-                Expedición: {medica.fecha_expedicion || '—'} · Concepto de aptitud en alturas:{' '}
-                {textoBooleano(medica.concepto_aptitud_alturas)}
-              </p>
-              <AiBox
-                label="Resultado del sistema"
-                valor={etiquetaEstado(expediente.resultados_validacion.medica.estado)}
-                motivo={expediente.resultados_validacion.medica.motivo}
-              />
-              <RadioGroup
-                name="medica_val"
-                label="¿Es válida la evaluación médica?"
-                opciones={OPCIONES_VALIDEZ}
-                valor={estado.medica_override}
-                onChange={(v) => set('medica_override', v)}
-              />
-            </div>
-            <DocumentoClickeable hash={hash} paginas={medica.paginas} />
-          </div>
-        )}
-      </section>
-
-      {/* Decisión y guardar */}
-      <section>
-        <h2 className="mb-2 text-xl font-bold" style={{ color: 'var(--to-ink)' }}>
-          Decisión con tu revisión
-        </h2>
-        <EstadoBadge
-          estado={claveEstado(estadoFinal)}
-          texto={
-            estadoFinal +
-            (preview?.decision_actualizada.causal_sugerida ? ` — ${preview.decision_actualizada.causal_sugerida}` : '')
-          }
-        />
-
-        <h3 className="mt-6 mb-2 text-lg font-bold" style={{ color: 'var(--to-ink)' }}>
-          Guardar revisión
-        </h3>
-        {!decisionFinal && (
-          <p className="mb-2 text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
-            Todavía hay ítems pendientes de confirmar arriba (entrega, relacionado, alturas, médica) — resuélvelos
-            para poder guardar una decisión final.
-          </p>
-        )}
-        <input
-          type="text"
-          placeholder="Tu nombre (queda registrado en la auditoría)"
-          value={estado.revisado_por}
-          onChange={(e) => set('revisado_por', e.target.value)}
-          className="mb-3 w-80 rounded-md border px-3 py-2 text-sm"
-          style={{ borderColor: 'var(--to-border)', background: 'var(--to-surface)', color: 'var(--to-ink)' }}
-        />
-        <div>
-          <button
-            type="button"
-            disabled={!estado.revisado_por || !decisionFinal || guardar.isPending}
-            onClick={manejarGuardar}
-            className="rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-            style={{ background: 'var(--to-accent)' }}
-          >
-            {guardar.isPending ? 'Guardando…' : 'Guardar revisión en Google Sheets'}
-          </button>
-        </div>
-        {mensajeError && <p className="mt-2 text-sm" style={{ color: 'var(--to-bad)' }}>{mensajeError}</p>}
-      </section>
-    </div>
+      </aside>
+    </>
   )
 }

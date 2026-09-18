@@ -10,6 +10,7 @@
   --to-good: #2e7d46; --to-good-bg: #e8f4ea; --to-good-border: #bfe0c8;
   --to-warn: #8a6100; --to-warn-bg: #fdf3d9; --to-warn-border: #f2dda0;
   --to-bad: #a3312f; --to-bad-bg: #fbe7e7; --to-bad-border: #f2c4c3;
+  --to-viewer: #e9e6dc;
 }
 
 [data-theme="dark"] {
@@ -19,6 +20,7 @@
   --to-good: #6fbf85; --to-good-bg: #1b2c20; --to-good-border: #2e4a34;
   --to-warn: #e0b84a; --to-warn-bg: #332a12; --to-warn-border: #55461d;
   --to-bad: #e08585; --to-bad-bg: #362020; --to-bad-border: #55302f;
+  --to-viewer: #0f1115;
 }
 
 html, body, #root { height: 100%; }

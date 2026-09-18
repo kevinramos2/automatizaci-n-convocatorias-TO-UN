@@ -232,10 +232,15 @@ def obtener_expediente(hash_: str):
 
 
 @app.get("/api/expedientes/{hash_}/paginas/{numero}")
-def imagen_pagina(hash_: str, numero: int, dpi: int = 150):
+def imagen_pagina(hash_: str, numero: int, dpi: int = 150, extra: int = 0):
+    """`extra` (múltiplo de 90) es un giro manual encima de la rotación automática
+    guardada — lo usa el botón "Rotar" del visor; no modifica el PDF ni la caché.
+    """
+    if extra % 90 != 0:
+        raise HTTPException(400, "extra debe ser múltiplo de 90")
     resultado = _cargar_o_404(hash_)
     pdf_path = str(ruta_pdf(hash_))
-    rotacion = _rotacion_de_pagina(resultado, numero)
+    rotacion = (_rotacion_de_pagina(resultado, numero) + extra) % 360
     b64 = pagina_a_imagen_base64(pdf_path, numero, dpi=dpi, rotacion=rotacion)
     return Response(content=base64.b64decode(b64), media_type="image/png")
 

@@ -1,125 +1,143 @@
 import { useMemo, useState } from 'react'
-import { useConfig, useConvocatorias, useListaExpedientes, useProcesarExpediente } from '../hooks/useExpedientes'
+import { useConvocatorias, useListaExpedientes, useProcesarExpediente } from '../hooks/useExpedientes'
 import { ErrorAPI } from '../api/client'
 
-type Bucket = 'Pendientes de revisión' | 'Admitidos' | 'No admitidos'
+type Bucket = 'pendientes' | 'admitidos' | 'noadmitidos'
 
-const BUCKETS: Record<Bucket, (estado: string | null) => boolean> = {
-  'Pendientes de revisión': (e) => e !== 'ADMITIDO' && e !== 'NO ADMITIDO',
-  Admitidos: (e) => e === 'ADMITIDO',
-  'No admitidos': (e) => e === 'NO ADMITIDO',
+const BUCKETS: Record<Bucket, { etiqueta: string; incluye: (estado: string | null) => boolean }> = {
+  pendientes: { etiqueta: 'Pend.', incluye: (e) => e !== 'ADMITIDO' && e !== 'NO ADMITIDO' },
+  admitidos: { etiqueta: 'Admit.', incluye: (e) => e === 'ADMITIDO' },
+  noadmitidos: { etiqueta: 'No adm.', incluye: (e) => e === 'NO ADMITIDO' },
 }
 
+// Cola de aspirantes (columna izquierda): pestañas por estado, búsqueda y lista
+// en orden alfabético y mayúsculas. También aloja la subida de un expediente nuevo.
 export function Sidebar({
-  oscuro,
-  onCambiarOscuro,
   hashSeleccionado,
   onSeleccionar,
 }: {
-  oscuro: boolean
-  onCambiarOscuro: (v: boolean) => void
   hashSeleccionado: string | null
   onSeleccionar: (hash: string) => void
 }) {
-  const [fuente, setFuente] = useState<'elegir' | 'subir'>('elegir')
-  const [bucket, setBucket] = useState<Bucket>('Pendientes de revisión')
+  const [modo, setModo] = useState<'lista' | 'subir'>('lista')
+  const [bucket, setBucket] = useState<Bucket>('pendientes')
+  const [busqueda, setBusqueda] = useState('')
 
-  const { data: config } = useConfig()
   const { data: expedientes, isLoading } = useListaExpedientes()
 
+  const conteos = useMemo(() => {
+    const c: Record<Bucket, number> = { pendientes: 0, admitidos: 0, noadmitidos: 0 }
+    for (const e of expedientes ?? []) {
+      for (const b of Object.keys(BUCKETS) as Bucket[]) if (BUCKETS[b].incluye(e.estado_confirmado_por_humano)) c[b]++
+    }
+    return c
+  }, [expedientes])
+
   const opciones = useMemo(() => {
-    if (!expedientes) return []
-    return [...expedientes]
-      .filter((e) => BUCKETS[bucket](e.estado_confirmado_por_humano))
+    const q = busqueda.trim().toUpperCase()
+    return [...(expedientes ?? [])]
+      .filter((e) => BUCKETS[bucket].incluye(e.estado_confirmado_por_humano))
+      .filter((e) => !q || e.nombre.toUpperCase().includes(q) || e.cedula.replace(/\D/g, '').includes(q.replace(/\D/g, '') || '§'))
       .sort((a, b) => a.nombre.toUpperCase().localeCompare(b.nombre.toUpperCase()))
-  }, [expedientes, bucket])
+  }, [expedientes, bucket, busqueda])
 
   return (
     <aside
-      className="sticky top-0 flex h-screen w-72 shrink-0 flex-col gap-4 overflow-y-auto border-r px-5 py-6"
+      className="flex w-[264px] shrink-0 flex-col gap-2.5 overflow-hidden border-r p-3.5"
       style={{ background: 'var(--to-surface-2)', borderColor: 'var(--to-border)', color: 'var(--to-ink)' }}
     >
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={oscuro} onChange={(e) => onCambiarOscuro(e.target.checked)} />
-        Tema oscuro
-      </label>
-
-      <hr style={{ borderColor: 'var(--to-border)' }} />
-
-      <h2 className="text-lg font-bold">Proceso de selección TO 2026</h2>
-
-      {config?.sheet_url && (
-        <a
-          href={config.sheet_url}
-          target="_blank"
-          rel="noreferrer"
-          className="block rounded-md border px-3 py-2 text-center text-sm font-medium"
-          style={{ borderColor: 'var(--to-border)', background: 'var(--to-surface)' }}
-        >
-          Abrir Google Sheet ↗
-        </a>
-      )}
-
-      <div>
-        <p className="mb-1 text-sm font-medium">Expediente a revisar</p>
-        {(['elegir', 'subir'] as const).map((f) => (
-          <label key={f} className="flex cursor-pointer items-center gap-2 py-0.5 text-sm">
-            <input type="radio" name="fuente" checked={fuente === f} onChange={() => setFuente(f)} />
-            {f === 'elegir' ? 'Elegir un expediente ya procesado' : 'Subir un expediente nuevo'}
-          </label>
-        ))}
-      </div>
-
-      <hr style={{ borderColor: 'var(--to-border)' }} />
-
-      {fuente === 'elegir' ? (
+      {modo === 'lista' ? (
         <>
-          <div>
-            <p className="mb-1 text-sm font-medium">Ver</p>
-            {(Object.keys(BUCKETS) as Bucket[]).map((b) => (
-              <label key={b} className="flex cursor-pointer items-center gap-2 py-0.5 text-sm">
-                <input type="radio" name="bucket" checked={bucket === b} onChange={() => setBucket(b)} />
-                {b}
-              </label>
-            ))}
+          <div className="flex gap-0.5 rounded-[9px] p-[3px]" style={{ background: 'var(--to-border)' }} role="tablist">
+            {(Object.keys(BUCKETS) as Bucket[]).map((b) => {
+              const activa = bucket === b
+              return (
+                <button
+                  key={b}
+                  type="button"
+                  role="tab"
+                  aria-selected={activa}
+                  onClick={() => setBucket(b)}
+                  className="h-8 flex-1 basis-0 rounded-[7px] text-[11.5px] font-semibold"
+                  style={{
+                    background: activa ? 'var(--to-surface)' : 'transparent',
+                    color: activa ? 'var(--to-ink)' : 'var(--to-ink-muted)',
+                    boxShadow: activa ? '0 1px 2px rgba(0,0,0,.12)' : 'none',
+                  }}
+                >
+                  {BUCKETS[b].etiqueta} <span className="font-bold">{conteos[b]}</span>
+                </button>
+              )
+            })}
           </div>
 
-          <div>
-            <p className="mb-1 text-sm font-medium">Aspirante</p>
+          <input
+            type="search"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por nombre o cédula"
+            aria-label="Buscar aspirante"
+            className="h-[34px] w-full rounded-lg border px-3 text-[13px]"
+            style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)', color: 'var(--to-ink)' }}
+          />
+
+          <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
             {isLoading ? (
-              <p className="text-sm" style={{ color: 'var(--to-ink-muted)' }}>Cargando…</p>
+              <p className="p-2 text-sm" style={{ color: 'var(--to-ink-muted)' }}>Cargando…</p>
             ) : opciones.length === 0 ? (
-              <p className="text-sm" style={{ color: 'var(--to-ink-muted)' }}>
-                No hay expedientes en «{bucket}» todavía.
+              <p className="p-2 text-sm" style={{ color: 'var(--to-ink-muted)' }}>
+                No hay aspirantes en esta pestaña{busqueda ? ' con esa búsqueda' : ''}.
               </p>
             ) : (
-              <select
-                className="w-full rounded-md border px-2 py-1.5 text-sm"
-                style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)', color: 'var(--to-ink)' }}
-                value={hashSeleccionado ?? ''}
-                onChange={(e) => onSeleccionar(e.target.value)}
-              >
-                <option value="" disabled>
-                  — elige un aspirante —
-                </option>
-                {opciones.map((o) => (
-                  <option key={o.hash} value={o.hash}>
-                    {o.nombre.toUpperCase()} — C.C. {o.cedula}
-                    {o.convocatoria !== '—' ? ` — ${o.convocatoria}` : ''}
-                  </option>
-                ))}
-              </select>
+              opciones.map((o) => {
+                const sel = o.hash === hashSeleccionado
+                return (
+                  <button
+                    key={o.hash}
+                    type="button"
+                    onClick={() => onSeleccionar(o.hash)}
+                    className="w-full rounded-[9px] border px-2.5 py-2 text-left"
+                    style={{
+                      background: sel ? 'var(--to-accent-tint)' : 'transparent',
+                      borderColor: sel ? 'var(--to-accent-tint-border)' : 'transparent',
+                      color: 'var(--to-ink)',
+                    }}
+                  >
+                    <div className="text-xs leading-snug font-semibold">{o.nombre.toUpperCase()}</div>
+                    <div className="font-mono-to mt-0.5 text-[11px]" style={{ color: 'var(--to-ink-muted)' }}>
+                      C.C. {o.cedula}
+                      {o.convocatoria !== '—' ? ` · ${o.convocatoria}` : ''}
+                    </div>
+                  </button>
+                )
+              })
             )}
           </div>
+
+          <button
+            type="button"
+            onClick={() => setModo('subir')}
+            className="h-9 rounded-lg border text-[13px] font-semibold"
+            style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)' }}
+          >
+            Subir expediente nuevo
+          </button>
         </>
       ) : (
-        <SubirExpediente onProcesado={onSeleccionar} />
+        <SubirExpediente
+          onVolver={() => setModo('lista')}
+          onProcesado={(hash) => {
+            setModo('lista')
+            setBucket('pendientes')
+            onSeleccionar(hash)
+          }}
+        />
       )}
     </aside>
   )
 }
 
-function SubirExpediente({ onProcesado }: { onProcesado: (hash: string) => void }) {
+function SubirExpediente({ onProcesado, onVolver }: { onProcesado: (hash: string) => void; onVolver: () => void }) {
   const { data: convocatorias } = useConvocatorias()
   const [convocatoria, setConvocatoria] = useState<string>('')
   const [archivo, setArchivo] = useState<File | null>(null)
@@ -127,18 +145,13 @@ function SubirExpediente({ onProcesado }: { onProcesado: (hash: string) => void 
   const procesar = useProcesarExpediente()
 
   const opcionesConv = convocatorias ? Object.entries(convocatorias) : []
-  if (!convocatoria && opcionesConv.length) setConvocatoria(opcionesConv[0][0])
+  const convActual = convocatoria || opcionesConv[0]?.[0] || ''
 
   async function manejarProcesar() {
-    if (!archivo || !convocatoria) return
+    if (!archivo || !convActual) return
     setMensaje(null)
     try {
-      const r = await procesar.mutateAsync({ convocatoria, archivo })
-      setMensaje(
-        r.ya_procesado
-          ? 'Este expediente ya se había procesado antes — se cargó del caché, sin costo de API.'
-          : `Expediente procesado. Costo aprox: $${r.costo_usd.toFixed(4)} USD.`,
-      )
+      const r = await procesar.mutateAsync({ convocatoria: convActual, archivo })
       onProcesado(r.hash)
     } catch (e) {
       setMensaje(e instanceof ErrorAPI ? e.message : 'No se pudo procesar el expediente.')
@@ -147,35 +160,30 @@ function SubirExpediente({ onProcesado }: { onProcesado: (hash: string) => void 
 
   return (
     <div className="flex flex-col gap-3">
+      <p className="text-sm font-bold">Subir expediente nuevo</p>
       <div>
-        <p className="mb-1 text-sm font-medium">Convocatoria</p>
+        <label htmlFor="conv" className="mb-1 block text-sm font-medium">Convocatoria</label>
         <select
+          id="conv"
           className="w-full rounded-md border px-2 py-1.5 text-sm"
           style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)', color: 'var(--to-ink)' }}
-          value={convocatoria}
+          value={convActual}
           onChange={(e) => setConvocatoria(e.target.value)}
         >
           {opcionesConv.map(([clave, etiqueta]) => (
-            <option key={clave} value={clave}>
-              {etiqueta}
-            </option>
+            <option key={clave} value={clave}>{etiqueta}</option>
           ))}
         </select>
       </div>
 
       <div>
-        <p className="mb-1 text-sm font-medium">PDF del expediente del aspirante</p>
-        <input
-          type="file"
-          accept="application/pdf"
-          onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
-          className="w-full text-sm"
-        />
+        <label htmlFor="pdf" className="mb-1 block text-sm font-medium">PDF del expediente del aspirante</label>
+        <input id="pdf" type="file" accept="application/pdf" onChange={(e) => setArchivo(e.target.files?.[0] ?? null)} className="w-full text-sm" />
       </div>
 
       {archivo && (
         <p className="text-xs" style={{ color: 'var(--to-ink-muted)' }}>
-          Procesar un expediente nuevo llama a la API de Claude (~$0.15-0.25 USD por expediente).
+          Procesar un expediente nuevo llama a la API de Claude (~$0.15-0.25 USD). Si ya se procesó antes, se carga sin costo.
         </p>
       )}
 
@@ -183,13 +191,16 @@ function SubirExpediente({ onProcesado }: { onProcesado: (hash: string) => void 
         type="button"
         disabled={!archivo || procesar.isPending}
         onClick={manejarProcesar}
-        className="rounded-md px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
-        style={{ background: 'var(--to-accent)' }}
+        className="rounded-md px-3 py-2 text-sm font-semibold disabled:opacity-50"
+        style={{ background: 'var(--to-accent)', color: 'var(--to-bg)' }}
       >
         {procesar.isPending ? 'Procesando… puede tardar 1-2 minutos' : 'Procesar expediente'}
       </button>
+      <button type="button" onClick={onVolver} disabled={procesar.isPending} className="text-sm font-medium underline disabled:opacity-50">
+        Volver a la lista
+      </button>
 
-      {mensaje && <p className="text-xs" style={{ color: 'var(--to-ink-muted)' }}>{mensaje}</p>}
+      {mensaje && <p className="text-xs" style={{ color: 'var(--to-bad)' }}>{mensaje}</p>}
     </div>
   )
 }
