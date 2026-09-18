@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Expediente, ResultadoRegla } from '../api/types'
+import type { DocumentoTodo, Expediente, ResultadoRegla } from '../api/types'
 import { ErrorAPI } from '../api/client'
 import { useGuardarRevision } from '../hooks/useExpedientes'
 import { useRevisionState } from '../hooks/useRevisionState'
@@ -67,8 +67,23 @@ function peor(estados: string[]): string {
   return 'cumple'
 }
 
-function paginasDeTipo(expediente: Expediente, tipo: string): number[] {
-  return expediente.documentos.find((d) => d.tipo === tipo)?.paginas ?? []
+const NOMBRE_TIPO: Record<string, string> = {
+  formulario_inscripcion: 'formulario de inscripción',
+  cedula: 'cédula',
+  constancia_estudio: 'constancia de estudio',
+  constancia_laboral: 'constancia laboral',
+  certificado_alturas: 'certificado de alturas',
+  evaluacion_medica: 'evaluación médica',
+  libreta_militar: 'libreta militar',
+  examen_medico_anexo: 'examen médico anexo',
+  otro_no_identificado: 'no identificado',
+}
+// Tipos que ya tienen su propia pestaña; el resto va a "Otros".
+const TIPOS_CON_PESTANA = ['formulario_inscripcion', 'cedula', 'constancia_estudio', 'constancia_laboral', 'certificado_alturas', 'evaluacion_medica']
+
+function etiquetaOtro(d: DocumentoTodo): string {
+  if (d.tipo) return capitalizar(NOMBRE_TIPO[d.tipo] ?? d.tipo)
+  return `Sin leer · ${NOMBRE_TIPO[d.tipo_clasificado ?? ''] ?? 'documento'}`
 }
 
 function aPaginas(paginas: number[] | undefined, etiqueta: string | null): PaginaVisor[] {
@@ -151,24 +166,51 @@ export function ExpedienteDetalle({
   const colorTab = (pasos: number[]) =>
     pasos.every((p) => p !== paso && hecho(p)) ? 'var(--to-good)' : pasos.includes(paso) ? AMARILLO : 'var(--to-border)'
 
-  const tabs: TabVisor[] = useMemo(
-    () => [
-      { clave: 'formulario', label: 'Formulario', color: '', paginas: aPaginas(paginasDeTipo(expediente, 'formulario_inscripcion'), 'Formulario') },
-      { clave: 'cedula', label: 'Cédula', color: '', paginas: aPaginas(paginasDeTipo(expediente, 'cedula'), 'Cédula') },
+  // Las pestañas salen de TODOS los documentos encontrados (no solo de los ítems del
+  // checklist), y cada una corresponde a un paso: así la sección "Académica" muestra
+  // solo el colegio, "Relacionada" solo cursos/técnicos, y nada queda sin poder verse.
+  const tabs: TabVisor[] = useMemo(() => {
+    const todos = expediente.documentos_todos ?? []
+    const deTipo = (tipo: string, etiqueta: (d: DocumentoTodo) => string) =>
+      todos.filter((d) => d.tipo === tipo).flatMap((d) => aPaginas(d.paginas, etiqueta(d)))
+    const etiquetaEstudio = (i: number) => estudios[i].titulo || estudios[i].nombre_curso || capitalizar(estudios[i].nivel ?? 'Estudio')
+    const sinLeerLaboral = todos.filter((d) => d.tipo === null && d.tipo_clasificado === 'constancia_laboral')
+    const otros = todos.filter((d) => !(d.tipo && TIPOS_CON_PESTANA.includes(d.tipo)) && !sinLeerLaboral.includes(d))
+    const blancas = (expediente.paginas_blancas ?? []).map((pagina) => ({ pagina, etiqueta: 'En blanco', inicioDoc: true }))
+    return [
+      { clave: 'formulario', label: 'Formulario', color: '', paginas: deTipo('formulario_inscripcion', () => 'Formulario') },
+      { clave: 'cedula', label: 'Cédula', color: '', paginas: deTipo('cedula', () => 'Cédula') },
+      { clave: 'academica', label: 'Académica', color: '', paginas: idxAcademicos.flatMap((i) => aPaginas(estudios[i].paginas, etiquetaEstudio(i))) },
+      { clave: 'relacionada', label: 'Relacionada', color: '', paginas: idxRelacionados.flatMap((i) => aPaginas(estudios[i].paginas, etiquetaEstudio(i))) },
       {
-        clave: 'estudios',
-        label: 'Estudios',
+        clave: 'laboral',
+        label: 'Laboral',
         color: '',
-        paginas: estudios.flatMap((e) => aPaginas(e.paginas, e.titulo || e.nombre_curso || capitalizar(e.nivel ?? 'Estudio'))),
+        paginas: [
+          ...laborales.flatMap((l) => aPaginas(l.paginas, l.cargo || l.entidad)),
+          ...sinLeerLaboral.flatMap((d) => aPaginas(d.paginas, etiquetaOtro(d))),
+        ],
       },
-      { clave: 'laboral', label: 'Laboral', color: '', paginas: laborales.flatMap((l) => aPaginas(l.paginas, l.cargo || l.entidad)) },
-      { clave: 'alturas', label: 'Alturas', color: '', paginas: aPaginas(alturas?.paginas, 'Certificado de alturas') },
-      { clave: 'medica', label: 'Médica', color: '', paginas: aPaginas(medica?.paginas, 'Evaluación médica') },
-    ],
-    [expediente, estudios, laborales, alturas, medica],
-  )
-  const pasosDeTab: Record<string, number[]> = { formulario: [0], cedula: [0], estudios: [1, 2], laboral: [3], alturas: [4], medica: [5] }
-  const tabsConColor = tabs.map((t) => ({ ...t, color: colorTab(pasosDeTab[t.clave]) }))
+      { clave: 'alturas', label: 'Alturas', color: '', paginas: deTipo('certificado_alturas', (d) => (d.entidad ? `Alturas · ${d.entidad}` : 'Certificado de alturas')) },
+      { clave: 'medica', label: 'Médica', color: '', paginas: deTipo('evaluacion_medica', (d) => (d.entidad ? `Médica · ${d.entidad}` : 'Evaluación médica')) },
+      {
+        clave: 'otros',
+        label: 'Otros',
+        color: '',
+        paginas: [...otros.flatMap((d) => aPaginas(d.paginas, etiquetaOtro(d))), ...blancas],
+      },
+    ]
+  }, [expediente, estudios, laborales, idxAcademicos, idxRelacionados])
+  const pasosDeTab: Record<string, number[]> = { formulario: [0], cedula: [0], academica: [1], relacionada: [2], laboral: [3], alturas: [4], medica: [5], otros: [] }
+  const tabsConColor = tabs.map((t) => ({
+    ...t,
+    // el contador no cuenta las páginas en blanco (siguen accesibles dentro de la pestaña)
+    label: t.clave === 'otros' && t.paginas.some((p) => p.etiqueta !== 'En blanco') ? `Otros · ${t.paginas.filter((p) => p.etiqueta !== 'En blanco').length}` : t.label,
+    color: colorTab(pasosDeTab[t.clave]),
+  }))
+  // Documentos clasificados como constancia laboral que no se pudieron leer: se ven en la
+  // pestaña Laboral, pero no son un ítem que se pueda confirmar — se avisa en ese paso.
+  const nSinLeerLaboral = (expediente.documentos_todos ?? []).filter((d) => d.tipo === null && d.tipo_clasificado === 'constancia_laboral').length
 
   const [tab, setTab] = useState('formulario')
   const [pagina, setPagina] = useState<number | null>(tabs[0].paginas[0]?.pagina ?? tabs[1].paginas[0]?.pagina ?? null)
@@ -182,11 +224,11 @@ export function ExpedienteDetalle({
   useEffect(() => {
     const foco = ((): { tab: string; pagina?: number } | null => {
       if (paso === 0) return { tab: 'formulario', pagina: tabs[0].paginas[0]?.pagina ?? tabs[1].paginas[0]?.pagina }
-      if (paso === 1) return { tab: 'estudios', pagina: estudios[idxAcademicos[itemIdx]]?.paginas?.[0] }
-      if (paso === 2) return { tab: 'estudios', pagina: estudios[idxRelacionados[itemIdx]]?.paginas?.[0] }
+      if (paso === 1) return { tab: 'academica', pagina: estudios[idxAcademicos[itemIdx]]?.paginas?.[0] }
+      if (paso === 2) return { tab: 'relacionada', pagina: estudios[idxRelacionados[itemIdx]]?.paginas?.[0] }
       if (paso === 3) return { tab: 'laboral', pagina: laborales[itemIdx]?.paginas?.[0] }
-      if (paso === 4) return { tab: 'alturas', pagina: alturas?.paginas?.[0] }
-      if (paso === 5) return { tab: 'medica', pagina: medica?.paginas?.[0] }
+      if (paso === 4) return { tab: 'alturas', pagina: alturas?.paginas?.[0] ?? tabs.find((t) => t.clave === 'alturas')?.paginas[0]?.pagina }
+      if (paso === 5) return { tab: 'medica', pagina: medica?.paginas?.[0] ?? tabs.find((t) => t.clave === 'medica')?.paginas[0]?.pagina }
       return null
     })()
     if (foco) {
@@ -343,6 +385,11 @@ export function ExpedienteDetalle({
           {pregunta('¿Relacionada con el cargo?')}
           {listaItems('Experiencias de este aspirante', laborales.map((x) => `${x.cargo || '—'} · ${x.entidad || '—'}`), (n) => decidido(estado.decisiones_relacionado_laboral, n))}
           {cajaSistema(rvs.laboral)}
+          {nSinLeerLaboral > 0 && (
+            <p className="rounded-lg border px-3.5 py-3 text-[13px]" style={{ borderColor: 'var(--to-warn-border)', background: 'var(--to-warn-bg)', color: 'var(--to-ink)' }}>
+              Hay {nSinLeerLaboral} documento(s) clasificado(s) como constancia laboral que el sistema no pudo leer (cartas, oficios u otros). Revísalos en la pestaña «Laboral» del visor: no cuentan como experiencia hasta que los confirmes tú.
+            </p>
+          )}
           {expediente.inconsistencias.length > 0 && (
             <div className="rounded-lg border px-3.5 py-3" style={{ borderColor: 'var(--to-warn-border)', background: 'var(--to-warn-bg)' }}>
               <p className="mb-1.5 text-[13px] font-semibold" style={{ color: 'var(--to-warn)' }}>

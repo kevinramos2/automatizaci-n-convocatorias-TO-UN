@@ -12,6 +12,15 @@ export interface Documento {
   datos: Record<string, unknown>
 }
 
+// Todo lo que el sistema encontró en el PDF, incluso lo que no llegó al checklist.
+export interface DocumentoTodo {
+  tipo: string | null // tipo final tras la extracción; null si no se pudo leer
+  tipo_clasificado: string | null // tipo con el que se clasificó la página
+  paginas: number[]
+  con_datos: boolean
+  entidad: string | null
+}
+
 export interface Estudio {
   nivel: string | null
   institucion: string | null
@@ -102,6 +111,8 @@ export interface Expediente {
   decision: { estado_sugerido: string; causal_sugerida: string | null }
   inconsistencias: Inconsistencia[]
   documentos: Documento[]
+  documentos_todos?: DocumentoTodo[]
+  paginas_blancas?: number[]
   indices_academicos: number[]
   rotacion: number
   convocatoria?: string

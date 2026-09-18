@@ -147,6 +147,27 @@ def test_imagen_pagina_suma_el_giro_manual_a_la_rotacion_guardada():
         assert client.get(f"/api/expedientes/{_HASH}/paginas/2?extra=45").status_code == 400
 
 
+def test_documentos_todos_incluye_lo_que_no_llega_al_checklist():
+    base = _resultado_base()
+    base["documentos_logicos"] = [
+        {"tipo": "constancia_laboral", "paginas": [5]},
+        {"tipo": "libreta_militar", "paginas": [7]},
+    ]
+    base["documentos_extraidos"] = [
+        {"tipo_final": None, "paginas": [5], "datos": None},  # carta laboral que no se pudo leer
+        {"tipo_final": "libreta_militar", "paginas": [7], "datos": None},
+        {"tipo_final": "certificado_alturas", "paginas": [9], "datos": {"entidad_emisora": "SENA"}},
+    ]
+    with patch.object(api_main, "cargar_resultado", return_value=base):
+        r = client.get(f"/api/expedientes/{_HASH}").json()
+    todos = {tuple(d["paginas"]): d for d in r["documentos_todos"]}
+    assert todos[(5,)]["tipo"] is None and todos[(5,)]["tipo_clasificado"] == "constancia_laboral"
+    assert todos[(7,)]["tipo"] == "libreta_militar" and todos[(7,)]["con_datos"] is False
+    assert todos[(9,)]["entidad"] == "SENA"
+    # "documentos" (los que sí tienen datos) sigue igual que antes
+    assert [d["tipo"] for d in r["documentos"]] == ["certificado_alturas"]
+
+
 def test_procesar_rechaza_convocatoria_invalida():
     r = client.post(
         "/api/expedientes/procesar",
