@@ -5,7 +5,7 @@ import { useGuardarRevision } from '../hooks/useExpedientes'
 import { useRevisionState } from '../hooks/useRevisionState'
 import { AiBox, ETIQUETA_ESTADO, EstadoBadge, EstadoPill } from './Estado'
 import { OpcionesGrandes, Tecla, type Opcion } from './OpcionesGrandes'
-import { Visor, type PaginaVisor, type TabVisor } from './Visor'
+import { Visor, type PaginaVisor } from './Visor'
 
 const MINTRABAJO_CONSULTA_ALTURAS = 'https://app2.mintrabajo.gov.co/CentrosEntrenamiento/consulta_ext.aspx'
 
@@ -40,8 +40,6 @@ const PASOS = [
 ] as const
 const ETIQUETA_STEPPER = ['Entrega', 'Académica', 'Relacionada', 'Laboral', 'Alturas', 'Médica', 'Resumen']
 const PASO_RESUMEN = PASOS.length - 1
-
-const AMARILLO = '#d9a82b'
 
 // Igual que el .capitalize() de Python que usa app_revision.py cuando no hay "titulo".
 function capitalizar(texto: string): string {
@@ -164,34 +162,23 @@ export function ExpedienteDetalle({
     return visitados.has(p) && est !== 'requiere_revision_manual'
   }
 
-  // ---- Visor: pestañas por documento, ligadas al paso actual ----
-  const colorTab = (pasos: number[]) =>
-    pasos.every((p) => p !== paso && hecho(p)) ? 'var(--to-good)' : pasos.includes(paso) ? AMARILLO : 'var(--to-border)'
-
-  // Una pestaña por sección del checklist, con solo los documentos de ese paso
-  // ("Académica" solo el colegio, "Relacionada" solo cursos/técnicos).
-  const tabs: TabVisor[] = useMemo(() => {
+  // ---- Visor: documentos de la sección del paso actual ----
+  // Documentos por sección del checklist, con solo los de ese paso ("academica" solo el
+  // colegio, "relacionada" solo cursos/técnicos). El visor muestra la del paso actual.
+  const tabs: { clave: string; paginas: PaginaVisor[] }[] = useMemo(() => {
     const etiquetaEstudio = (i: number) => estudios[i].titulo || estudios[i].nombre_curso || capitalizar(estudios[i].nivel ?? 'Estudio')
     return [
-      { clave: 'formulario', label: 'Formulario', color: '', paginas: aPaginas(paginasDeTipo(expediente, 'formulario_inscripcion'), 'Formulario') },
-      { clave: 'cedula', label: 'Cédula', color: '', paginas: aPaginas(paginasDeTipo(expediente, 'cedula'), 'Cédula') },
-      { clave: 'academica', label: 'Académica', color: '', paginas: idxAcademicos.flatMap((i) => aPaginas(estudios[i].paginas, etiquetaEstudio(i))) },
-      { clave: 'relacionada', label: 'Relacionada', color: '', paginas: idxRelacionados.flatMap((i) => aPaginas(estudios[i].paginas, etiquetaEstudio(i))) },
-      { clave: 'laboral', label: 'Laboral', color: '', paginas: laborales.flatMap((l) => aPaginas(l.paginas, l.cargo || l.entidad)) },
-      { clave: 'alturas', label: 'Alturas', color: '', paginas: aPaginas(paginasConRespaldo(expediente, 'certificado_alturas', alturas), 'Certificado de alturas') },
-      { clave: 'medica', label: 'Médica', color: '', paginas: aPaginas(paginasConRespaldo(expediente, 'evaluacion_medica', medica), 'Evaluación médica') },
+      { clave: 'formulario', paginas: aPaginas(paginasDeTipo(expediente, 'formulario_inscripcion'), 'Formulario') },
+      { clave: 'cedula', paginas: aPaginas(paginasDeTipo(expediente, 'cedula'), 'Cédula') },
+      { clave: 'academica', paginas: idxAcademicos.flatMap((i) => aPaginas(estudios[i].paginas, etiquetaEstudio(i))) },
+      { clave: 'relacionada', paginas: idxRelacionados.flatMap((i) => aPaginas(estudios[i].paginas, etiquetaEstudio(i))) },
+      { clave: 'laboral', paginas: laborales.flatMap((l) => aPaginas(l.paginas, l.cargo || l.entidad)) },
+      { clave: 'alturas', paginas: aPaginas(paginasConRespaldo(expediente, 'certificado_alturas', alturas), 'Certificado de alturas') },
+      { clave: 'medica', paginas: aPaginas(paginasConRespaldo(expediente, 'evaluacion_medica', medica), 'Evaluación médica') },
     ]
   }, [expediente, estudios, laborales, alturas, medica, idxAcademicos, idxRelacionados])
-  const pasosDeTab: Record<string, number[]> = { formulario: [0], cedula: [0], academica: [1], relacionada: [2], laboral: [3], alturas: [4], medica: [5] }
-  const tabsConColor = tabs.map((t) => ({ ...t, color: colorTab(pasosDeTab[t.clave]) }))
-
   const [tab, setTab] = useState('formulario')
   const [pagina, setPagina] = useState<number | null>(tabs[0].paginas[0]?.pagina ?? tabs[1].paginas[0]?.pagina ?? null)
-
-  function elegirTab(clave: string) {
-    setTab(clave)
-    setPagina(tabs.find((t) => t.clave === clave)?.paginas[0]?.pagina ?? null)
-  }
 
   // Al cambiar de paso/ítem, el visor salta al documento correspondiente.
   useEffect(() => {
@@ -386,16 +373,28 @@ export function ExpedienteDetalle({
       return (
         <>
           {titulo('Certificado de alturas', `${alturas.entidad_emisora || '—'} · Expedición: ${alturas.fecha_expedicion || '—'} · Vencimiento: ${alturas.fecha_vencimiento || '—'}`)}
+          <div
+            className="flex flex-col gap-2.5 rounded-xl border-2 p-3.5"
+            style={{ borderColor: 'var(--to-accent)', background: 'var(--to-accent-tint)' }}
+          >
+            <p className="text-[14px] font-semibold" style={{ color: 'var(--to-ink)' }}>
+              Antes de responder, verifica el certificado en el Ministerio del Trabajo con la cédula{' '}
+              <span className="font-mono-to font-bold">{cedula.numero || '—'}</span>.
+            </p>
+            <a
+              href={MINTRABAJO_CONSULTA_ALTURAS}
+              target="_blank"
+              rel="noreferrer"
+              className="flex h-12 items-center justify-center gap-2 rounded-lg px-4 text-[15px] font-bold shadow-md hover:opacity-90"
+              style={{ background: 'var(--to-accent)', color: 'var(--to-bg)' }}
+            >
+              Verificar en el Ministerio del Trabajo ↗
+            </a>
+          </div>
+          {cajaSistema(rvs.alturas)}
           <p className="text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
             El sistema calcula esto de las fechas extraídas, y a veces se equivoca leyendo el documento — revisa la imagen antes de confirmar.
           </p>
-          {cajaSistema(rvs.alturas)}
-          <div>
-            <a href={MINTRABAJO_CONSULTA_ALTURAS} target="_blank" rel="noreferrer" className="inline-block rounded-md border px-3 py-1.5 text-sm font-medium" style={{ borderColor: 'var(--to-border)', background: 'var(--to-surface-2)', color: 'var(--to-ink)' }}>
-              Verificar en el Ministerio del Trabajo ↗
-            </a>
-            <p className="mt-1 text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>Busca con la cédula {cedula.numero || '—'} antes de marcar válido o no válido.</p>
-          </div>
           {pregunta('¿Es válido el certificado de alturas al cierre de inscripción?')}
         </>
       )
@@ -444,7 +443,15 @@ export function ExpedienteDetalle({
 
   return (
     <>
-      <Visor hash={hash} tabs={tabsConColor} tab={tab} onTab={elegirTab} pagina={pagina} onPagina={setPagina} />
+      <Visor
+        hash={hash}
+        paginas={tabs.find((t) => t.clave === tab)?.paginas ?? []}
+        pagina={pagina}
+        onPagina={setPagina}
+        paso={paso + 1}
+        totalPasos={PASOS.length}
+        titulo={PASOS[paso].titulo}
+      />
 
       <aside className="flex w-[460px] shrink-0 flex-col border-l" style={{ background: 'var(--to-bg)', borderColor: 'var(--to-border)' }}>
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
@@ -486,7 +493,10 @@ export function ExpedienteDetalle({
             })}
           </nav>
 
-          <div className="text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--to-accent)' }}>
+          <div
+            className="rounded-lg border px-3.5 py-2.5 text-[13px] font-bold tracking-wide uppercase"
+            style={{ background: 'var(--to-accent-tint)', borderColor: 'var(--to-accent-tint-border)', color: 'var(--to-accent)' }}
+          >
             Paso {paso + 1} de {PASOS.length} · {PASOS[paso].titulo}
           </div>
 

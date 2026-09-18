@@ -8,13 +8,6 @@ export interface PaginaVisor {
   inicioDoc: boolean
 }
 
-export interface TabVisor {
-  clave: string
-  label: string
-  color: string
-  paginas: PaginaVisor[]
-}
-
 function BotonIcono({ etiqueta, onClick, children }: { etiqueta: string; onClick: () => void; children: ReactNode }) {
   return (
     <button
@@ -31,23 +24,24 @@ function BotonIcono({ etiqueta, onClick, children }: { etiqueta: string; onClick
 
 const ICONO = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' } as const
 
-// Zona central: pestañas por documento, visor con zoom/rotación y tira de miniaturas.
+// Zona central: franja con el paso actual, visor con zoom/rotación y tira de miniaturas.
 export function Visor({
   hash,
-  tabs,
-  tab,
-  onTab,
+  paginas,
   pagina,
   onPagina,
+  paso,
+  totalPasos,
+  titulo,
 }: {
   hash: string
-  tabs: TabVisor[]
-  tab: string
-  onTab: (clave: string) => void
+  paginas: PaginaVisor[]
   pagina: number | null
   onPagina: (p: number) => void
+  paso: number
+  totalPasos: number
+  titulo: string
 }) {
-  const actual = tabs.find((t) => t.clave === tab) ?? tabs[0]
   const [zoom, setZoom] = useState(1)
   const [giro, setGiro] = useState(0)
   const [ampliado, setAmpliado] = useState(false)
@@ -55,32 +49,29 @@ export function Visor({
   useEffect(() => {
     setZoom(1)
     setGiro(0)
-  }, [pagina, tab])
+  }, [pagina])
 
-  const paginaActual = actual.paginas.find((p) => p.pagina === pagina) ?? actual.paginas[0] ?? null
+  const paginaActual = paginas.find((p) => p.pagina === pagina) ?? paginas[0] ?? null
 
   return (
     <main className="flex min-w-0 flex-1 flex-col" style={{ background: 'var(--to-bg)' }}>
-      <div className="flex flex-wrap items-center gap-2 border-b px-5 py-3" style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)' }}>
-        {tabs.map((t) => {
-          const activa = t.clave === actual.clave
-          return (
-            <button
-              key={t.clave}
-              type="button"
-              onClick={() => onTab(t.clave)}
-              className="inline-flex h-[34px] items-center gap-[7px] rounded-full border px-3.5 text-[13px] font-semibold"
-              style={{
-                background: activa ? 'var(--to-accent)' : 'var(--to-surface)',
-                color: activa ? 'var(--to-bg)' : 'var(--to-ink)',
-                borderColor: activa ? 'var(--to-accent)' : 'var(--to-border)',
-              }}
-            >
-              <span className="h-2 w-2 rounded-full" style={{ background: t.color }} />
-              {t.label}
-            </button>
-          )
-        })}
+      <div
+        className="flex items-center gap-3.5 border-b px-5 py-3.5"
+        style={{ background: 'var(--to-accent-tint)', borderColor: 'var(--to-accent-tint-border)' }}
+      >
+        <div
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[17px] font-bold"
+          style={{ background: 'var(--to-accent)', color: 'var(--to-bg)' }}
+          aria-hidden="true"
+        >
+          {paso}
+        </div>
+        <div className="min-w-0">
+          <div className="text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--to-accent)' }}>
+            Paso {paso} de {totalPasos}
+          </div>
+          <h2 className="truncate text-[20px] leading-tight font-bold" style={{ color: 'var(--to-ink)' }}>{titulo}</h2>
+        </div>
       </div>
 
       <div className="relative min-h-0 flex-1" style={{ background: 'var(--to-viewer)' }}>
@@ -128,7 +119,7 @@ export function Visor({
       </div>
 
       <div className="flex items-end gap-3 overflow-x-auto border-t px-5 py-3" style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)', minHeight: 104 }}>
-        {actual.paginas.map((p) => {
+        {paginas.map((p) => {
           const activa = paginaActual?.pagina === p.pagina
           return (
             <button key={p.pagina} type="button" onClick={() => onPagina(p.pagina)} className="flex shrink-0 flex-col items-center gap-1" title={`Página ${p.pagina}`}>
@@ -145,11 +136,11 @@ export function Visor({
             </button>
           )
         })}
-        {actual.paginas.length === 0 && <span className="text-xs" style={{ color: 'var(--to-ink-muted)' }}>Sin páginas</span>}
+        {paginas.length === 0 && <span className="text-xs" style={{ color: 'var(--to-ink-muted)' }}>Sin páginas</span>}
       </div>
 
       {ampliado && paginaActual && (
-        <ModalPaginas hash={hash} paginas={actual.paginas.map((p) => p.pagina)} onCerrar={() => setAmpliado(false)} />
+        <ModalPaginas hash={hash} paginas={paginas.map((p) => p.pagina)} onCerrar={() => setAmpliado(false)} />
       )}
     </main>
   )
