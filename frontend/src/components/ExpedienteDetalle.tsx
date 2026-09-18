@@ -3,7 +3,7 @@ import type { Expediente } from '../api/types'
 import { ErrorAPI } from '../api/client'
 import { useGuardarRevision } from '../hooks/useExpedientes'
 import { OPCIONES_FIRMA, OPCIONES_RELACIONADO, OPCIONES_VALIDEZ, useRevisionState } from '../hooks/useRevisionState'
-import { AiBox, EstadoBadge, EstadoPill } from './Estado'
+import { AiBox, ETIQUETA_ESTADO, EstadoBadge, EstadoPill } from './Estado'
 import { RadioGroup } from './RadioGroup'
 import { DocumentoClickeable } from './DocumentoClickeable'
 
@@ -21,6 +21,23 @@ const MINTRABAJO_CONSULTA_ALTURAS = 'https://app2.mintrabajo.gov.co/CentrosEntre
 function paginasDe(expediente: Expediente, tipo: string): number[] {
   const doc = expediente.documentos.find((d) => d.tipo === tipo)
   return doc?.paginas ?? []
+}
+
+// Igual que el .capitalize() de Python que usa app_revision.py para el título de
+// cada documento académico/relacionado cuando no hay "titulo" (ej. "primaria" -> "Primaria").
+function capitalizar(texto: string): string {
+  return texto ? texto.charAt(0).toUpperCase() + texto.slice(1).toLowerCase() : texto
+}
+
+// Python str(bool) es "True"/"False" — así se veía en Streamlit.
+function textoBooleano(valor: boolean | null): string {
+  return valor === null ? 'None' : valor ? 'True' : 'False'
+}
+
+// Las cajas "Resultado del sistema" en Streamlit siempre muestran la etiqueta del
+// estado (CUMPLE/REQUIERE REVISIÓN/NO CUMPLE) seguida del motivo, no solo el motivo.
+function etiquetaEstado(estado: string): string {
+  return ETIQUETA_ESTADO[estado] ?? estado.toUpperCase()
 }
 
 function claveEstado(estadoDecision: string): string {
@@ -166,8 +183,8 @@ export function ExpedienteDetalle({ expediente }: { expediente: Expediente }) {
           <>
             <AiBox
               label="Resultado del sistema"
-              valor={expediente.resultados_validacion.estudio.motivo}
-              motivo={null}
+              valor={etiquetaEstado(expediente.resultados_validacion.estudio.estado)}
+              motivo={expediente.resultados_validacion.estudio.motivo}
             />
             <div className="flex flex-col gap-3">
               {expediente.indices_academicos.map((i) => {
@@ -176,7 +193,7 @@ export function ExpedienteDetalle({ expediente }: { expediente: Expediente }) {
                   <div key={i} className="grid grid-cols-[2fr_1fr] gap-4 rounded-lg border p-4" style={{ borderColor: 'var(--to-border)' }}>
                     <div>
                       <p className="font-semibold" style={{ color: 'var(--to-ink)' }}>
-                        {e.titulo || (e.nivel ?? '—')} — <em>{e.institucion || '—'}</em>
+                        {e.titulo || capitalizar(e.nivel ?? '—')} — <em>{e.institucion || '—'}</em>
                       </p>
                       <p className="text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
                         {e.fecha_terminacion || e.fecha_fin || ''}
@@ -223,7 +240,7 @@ export function ExpedienteDetalle({ expediente }: { expediente: Expediente }) {
                       {esCurso ? (
                         <>Curso: {e.nombre_curso || '—'} — <em>{e.institucion || '—'}</em></>
                       ) : (
-                        <>{e.titulo || (e.nivel ?? '—')} — <em>{e.institucion || '—'}</em></>
+                        <>{e.titulo || capitalizar(e.nivel ?? '—')} — <em>{e.institucion || '—'}</em></>
                       )}
                     </p>
                     {e.relacionado_sugerido && (
@@ -300,7 +317,11 @@ export function ExpedienteDetalle({ expediente }: { expediente: Expediente }) {
               <p className="text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
                 Expedición: {alturas.fecha_expedicion || '—'} · Vencimiento: {alturas.fecha_vencimiento || '—'}
               </p>
-              <AiBox label="Resultado del sistema" valor={expediente.resultados_validacion.alturas.motivo} motivo={null} />
+              <AiBox
+                label="Resultado del sistema"
+                valor={etiquetaEstado(expediente.resultados_validacion.alturas.estado)}
+                motivo={expediente.resultados_validacion.alturas.motivo}
+              />
               <a
                 href={MINTRABAJO_CONSULTA_ALTURAS}
                 target="_blank"
@@ -333,9 +354,13 @@ export function ExpedienteDetalle({ expediente }: { expediente: Expediente }) {
               </p>
               <p className="text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
                 Expedición: {medica.fecha_expedicion || '—'} · Concepto de aptitud en alturas:{' '}
-                {String(medica.concepto_aptitud_alturas)}
+                {textoBooleano(medica.concepto_aptitud_alturas)}
               </p>
-              <AiBox label="Resultado del sistema" valor={expediente.resultados_validacion.medica.motivo} motivo={null} />
+              <AiBox
+                label="Resultado del sistema"
+                valor={etiquetaEstado(expediente.resultados_validacion.medica.estado)}
+                motivo={expediente.resultados_validacion.medica.motivo}
+              />
               <RadioGroup
                 name="medica_val"
                 label="¿Es válida la evaluación médica?"
