@@ -434,7 +434,7 @@ export function ExpedienteDetalle({
       <>
         <div className="flex flex-col gap-1.5">
           {filas.map((f, n) => (
-            <div key={f.paso} className="flex items-center gap-3 rounded-[10px] border px-3 py-1.5" style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)' }}>
+            <div key={f.paso} className="flex items-center gap-3 rounded-[10px] border px-3 py-1" style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)' }}>
               <span className="font-mono-to text-xs" style={{ color: 'var(--to-ink-muted)' }}>{String(n + 1).padStart(2, '0')}</span>
               <div className="min-w-0 flex-1">
                 <div className="text-[13.5px] font-semibold" style={{ color: 'var(--to-ink)' }}>{f.titulo}</div>
@@ -463,11 +463,11 @@ export function ExpedienteDetalle({
 
       <aside className="flex w-[460px] shrink-0 flex-col border-l" style={{ background: 'var(--to-bg)', borderColor: 'var(--to-border)' }}>
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-5 py-2">
-          <div className="flex items-baseline justify-between gap-3">
-            <div className="min-w-0 truncate text-[16px] font-bold" style={{ color: 'var(--to-ink)' }} title={(formulario.nombre || '—').toUpperCase()}>
+          <div className="min-w-0">
+            <div className="line-clamp-2 text-[19px] leading-tight font-bold" style={{ color: 'var(--to-ink)' }} title={(formulario.nombre || '—').toUpperCase()}>
               {(formulario.nombre || '—').toUpperCase()}
             </div>
-            <div className="font-mono-to shrink-0 text-[12.5px]" style={{ color: 'var(--to-ink-muted)' }}>C.C. {cedula.numero || '—'}</div>
+            <div className="font-mono-to text-[14px]" style={{ color: 'var(--to-ink-muted)' }}>C.C. {cedula.numero || '—'}</div>
           </div>
           {expediente.estado_confirmado_por_humano && (
             <div className="-mt-1.5 flex items-center gap-2 text-xs" style={{ color: 'var(--to-ink-muted)' }}>

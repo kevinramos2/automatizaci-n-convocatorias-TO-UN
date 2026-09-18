@@ -45,7 +45,7 @@ export function EstadoPill({ estado }: { estado: string }) {
 export function AiBox({ label, valor, motivo }: { label: string; valor: string; motivo?: string | null }) {
   return (
     <div
-      className="rounded-[9px] border px-3 py-2 text-[13px] leading-snug"
+      className="rounded-[9px] border px-3 py-1.5 text-[13px] leading-snug"
       style={{ background: 'var(--to-accent-tint)', borderColor: 'var(--to-accent-tint-border)', color: 'var(--to-ink)' }}
     >
       <span
