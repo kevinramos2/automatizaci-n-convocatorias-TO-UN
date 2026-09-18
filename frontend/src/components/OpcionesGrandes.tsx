@@ -36,14 +36,14 @@ export function OpcionesGrandes({
   onChange: (v: string) => void
 }) {
   return (
-    <div role="radiogroup" className="flex gap-2.5">
+    <div role="radiogroup" className="flex gap-2">
       {opciones.map((o, i) => {
         const activa = valor === o.valor
         const t = TONOS[o.tono]
         return (
           <label
             key={o.valor}
-            className="relative flex min-h-[54px] flex-1 basis-0 cursor-pointer items-center justify-center rounded-xl border-2 px-5 py-2.5 text-center focus-within:ring-2 focus-within:ring-[var(--to-accent)]"
+            className="relative flex min-h-[44px] flex-1 basis-0 cursor-pointer items-center justify-center rounded-xl border-2 px-4 py-2 text-center focus-within:ring-2 focus-within:ring-[var(--to-accent)]"
             style={{
               background: activa ? t.bg : 'var(--to-surface)',
               borderColor: activa ? t.borde : 'var(--to-border)',

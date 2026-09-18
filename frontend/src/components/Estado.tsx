@@ -16,11 +16,11 @@ function coloresDe(estado: string) {
   return COLORES[estado] ?? { color: 'var(--to-ink-muted)', bg: 'var(--to-surface-2)', border: 'var(--to-border)' }
 }
 
-export function EstadoBadge({ estado, texto }: { estado: string; texto: string }) {
+export function EstadoBadge({ estado, texto, pequeno = false }: { estado: string; texto: string; pequeno?: boolean }) {
   const c = coloresDe(estado)
   return (
     <span
-      className="inline-flex items-center gap-2 rounded-full border px-4.5 py-2.5 text-[13px] font-bold tracking-wide whitespace-nowrap"
+      className={`inline-flex items-center gap-2 rounded-full border font-bold tracking-wide whitespace-nowrap ${pequeno ? 'px-3 py-1 text-[11.5px]' : 'px-4.5 py-2.5 text-[13px]'}`}
       style={{ color: c.color, background: c.bg, borderColor: c.border }}
     >
       <span className="h-1.5 w-1.5 rounded-full" style={{ background: 'currentColor' }} />
@@ -45,7 +45,7 @@ export function EstadoPill({ estado }: { estado: string }) {
 export function AiBox({ label, valor, motivo }: { label: string; valor: string; motivo?: string | null }) {
   return (
     <div
-      className="my-2 rounded-[9px] border px-3.5 py-2.5 text-[13px]"
+      className="rounded-[9px] border px-3 py-2 text-[13px] leading-snug"
       style={{ background: 'var(--to-accent-tint)', borderColor: 'var(--to-accent-tint-border)', color: 'var(--to-ink)' }}
     >
       <span

@@ -4,7 +4,7 @@ import { ErrorAPI } from '../api/client'
 import { useGuardarRevision } from '../hooks/useExpedientes'
 import { useRevisionState } from '../hooks/useRevisionState'
 import { AiBox, ETIQUETA_ESTADO, EstadoBadge, EstadoPill } from './Estado'
-import { OpcionesGrandes, Tecla, type Opcion } from './OpcionesGrandes'
+import { OpcionesGrandes, type Opcion } from './OpcionesGrandes'
 import { Visor, type PaginaVisor } from './Visor'
 
 const MINTRABAJO_CONSULTA_ALTURAS = 'https://app2.mintrabajo.gov.co/CentrosEntrenamiento/consulta_ext.aspx'
@@ -256,42 +256,49 @@ export function ExpedienteDetalle({
 
   const listaItems = (titulo: string, etiquetas: string[], hechoDe: (n: number) => boolean) =>
     etiquetas.length > 1 && (
-      <>
-        <div className="h-px" style={{ background: 'var(--to-border)' }} />
-        <div className="text-[11.5px] font-bold tracking-wide uppercase" style={{ color: 'var(--to-ink-muted)' }}>
-          {titulo} · {itemIdx + 1} de {etiquetas.length}
+      <div className="flex items-center gap-2" role="group" aria-label={titulo}>
+        <span className="text-[11.5px] font-bold tracking-wide whitespace-nowrap uppercase" style={{ color: 'var(--to-ink-muted)' }}>
+          Ítem {itemIdx + 1} de {etiquetas.length}
+        </span>
+        <div className="flex flex-wrap gap-1">
+          {etiquetas.map((t, n) => {
+            const actual = n === itemIdx
+            const ok = hechoDe(n)
+            return (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setItemIdx(n)}
+                title={`${t} — ${ok ? 'confirmado' : 'por confirmar'}`}
+                aria-label={`${titulo}: ${t}`}
+                aria-current={actual ? 'true' : undefined}
+                className="flex h-7 min-w-7 items-center justify-center rounded-md border px-1.5 text-xs font-bold"
+                style={
+                  actual
+                    ? { background: 'var(--to-accent)', color: 'var(--to-bg)', borderColor: 'var(--to-accent)' }
+                    : ok
+                      ? { background: 'var(--to-good-bg)', color: 'var(--to-good)', borderColor: 'var(--to-good-border)' }
+                      : { background: 'var(--to-surface)', color: 'var(--to-ink-muted)', borderColor: 'var(--to-border)' }
+                }
+              >
+                {ok && !actual ? '✓' : n + 1}
+              </button>
+            )
+          })}
         </div>
-        <div className="flex flex-col gap-0.5">
-          {etiquetas.map((t, n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setItemIdx(n)}
-              className="flex items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left"
-              style={{
-                background: n === itemIdx ? 'var(--to-accent-tint)' : 'transparent',
-                borderColor: n === itemIdx ? 'var(--to-accent-tint-border)' : 'transparent',
-              }}
-            >
-              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: hechoDe(n) ? 'var(--to-good)' : 'var(--to-border)' }} />
-              <span className="flex-1 text-[13px]" style={{ fontWeight: n === itemIdx ? 600 : 500, color: 'var(--to-ink)' }}>{t}</span>
-              <span className="text-xs" style={{ color: 'var(--to-ink-muted)' }}>{hechoDe(n) ? 'Confirmado' : 'Por confirmar'}</span>
-            </button>
-          ))}
-        </div>
-      </>
+      </div>
     )
 
   const pregunta = (texto: string) => (
     <>
-      <div className="text-[14.5px] font-semibold" style={{ color: 'var(--to-ink)' }}>{texto}</div>
+      <div className="text-[14px] font-semibold" style={{ color: 'var(--to-ink)' }}>{texto}</div>
       {control && <OpcionesGrandes name={`p${paso}_${itemIdx}`} opciones={control.opciones} valor={control.valor} onChange={control.cambiar} />}
     </>
   )
   const titulo = (t: string, sub?: string | null) => (
     <div>
-      <div className="text-[22px] leading-tight font-bold" style={{ color: 'var(--to-ink)' }}>{t}</div>
-      {sub ? <div className="mt-1 text-[13.5px]" style={{ color: 'var(--to-ink-muted)' }}>{sub}</div> : null}
+      <div className="line-clamp-2 text-[19px] leading-tight font-bold" title={t} style={{ color: 'var(--to-ink)' }}>{t}</div>
+      {sub ? <div className="mt-0.5 text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>{sub}</div> : null}
     </div>
   )
   const vacio = (texto: string) => (
@@ -306,8 +313,8 @@ export function ExpedienteDetalle({
           {titulo(
             esFormulario ? 'Formulario de inscripción' : 'Fotocopia de la cédula',
             esFormulario
-              ? 'Según la lista de chequeo: confirma que el aspirante aportó el formulario de inscripción diligenciado.'
-              : 'Según la lista de chequeo: confirma que el aspirante aportó la fotocopia de la cédula.',
+              ? 'Lista de chequeo: formulario de inscripción diligenciado.'
+              : 'Lista de chequeo: fotocopia de la cédula.',
           )}
           {cajaSistema(esFormulario ? rvs.formulario : rvs.cedula)}
           {pregunta(esFormulario ? '¿Aportó el formulario de inscripción?' : '¿Aportó la fotocopia de la cédula?')}
@@ -322,7 +329,7 @@ export function ExpedienteDetalle({
         <>
           {titulo(e.titulo || capitalizar(e.nivel ?? '—'), [e.institucion, e.fecha_terminacion || e.fecha_fin].filter(Boolean).join(' · '))}
           <p className="text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
-            Solo el colegio (primaria/secundaria) — acta de grado y diploma de bachiller. Cada documento se valida por separado.
+            Solo el colegio: acta de grado y diploma. Cada documento se valida por separado.
           </p>
           {cajaSistema(rvs.estudio)}
           {pregunta('¿Es válido este documento?')}
@@ -350,20 +357,22 @@ export function ExpedienteDetalle({
       return (
         <>
           {titulo(`${l.cargo || '—'} en ${l.entidad || '—'}`, `${l.fecha_inicio || '?'} → ${l.fecha_fin || 'a la fecha'}`)}
-          {l.funciones && <p className="text-[13px] leading-relaxed" style={{ color: 'var(--to-ink-muted)' }}>{l.funciones}</p>}
+          {l.funciones && <p className="line-clamp-1 text-[12.5px] leading-snug" title={l.funciones} style={{ color: 'var(--to-ink-muted)' }}>{l.funciones}</p>}
           {l.relacionado_sugerido && <AiBox label="Sugerencia de la IA" valor={l.relacionado_sugerido} motivo={l.justificacion_relacionado} />}
           {pregunta('¿Relacionada con el cargo?')}
           {listaItems('Experiencias de este aspirante', laborales.map((x) => `${x.cargo || '—'} · ${x.entidad || '—'}`), (n) => decidido(estado.decisiones_relacionado_laboral, n))}
           {cajaSistema(rvs.laboral)}
           {expediente.inconsistencias.length > 0 && (
-            <div className="rounded-lg border px-3.5 py-3" style={{ borderColor: 'var(--to-warn-border)', background: 'var(--to-warn-bg)' }}>
-              <p className="mb-1.5 text-[13px] font-semibold" style={{ color: 'var(--to-warn)' }}>
-                {expediente.inconsistencias.length} inconsistencia(s) detectada(s) automáticamente
-              </p>
-              {expediente.inconsistencias.map((inc, i) => (
-                <p key={i} className="text-[13px]" style={{ color: 'var(--to-ink)' }}>{inc.detalle}</p>
-              ))}
-            </div>
+            <details className="rounded-lg border px-3 py-2" style={{ borderColor: 'var(--to-warn-border)', background: 'var(--to-warn-bg)' }}>
+              <summary className="cursor-pointer text-[13px] font-semibold" style={{ color: 'var(--to-warn)' }}>
+                {expediente.inconsistencias.length} inconsistencia(s) detectada(s) automáticamente — ver
+              </summary>
+              <div className="mt-1.5 flex max-h-40 flex-col gap-1 overflow-y-auto">
+                {expediente.inconsistencias.map((inc, i) => (
+                  <p key={i} className="text-[12.5px]" style={{ color: 'var(--to-ink)' }}>{inc.detalle}</p>
+                ))}
+              </div>
+            </details>
           )}
         </>
       )
@@ -374,10 +383,10 @@ export function ExpedienteDetalle({
         <>
           {titulo('Certificado de alturas', `${alturas.entidad_emisora || '—'} · Expedición: ${alturas.fecha_expedicion || '—'} · Vencimiento: ${alturas.fecha_vencimiento || '—'}`)}
           <div
-            className="flex flex-col gap-2.5 rounded-xl border-2 p-3.5"
+            className="flex flex-col gap-2 rounded-xl border-2 p-3"
             style={{ borderColor: 'var(--to-accent)', background: 'var(--to-accent-tint)' }}
           >
-            <p className="text-[14px] font-semibold" style={{ color: 'var(--to-ink)' }}>
+            <p className="text-[13.5px] leading-snug font-semibold" style={{ color: 'var(--to-ink)' }}>
               Antes de responder, verifica el certificado en el Ministerio del Trabajo con la cédula{' '}
               <span className="font-mono-to font-bold">{cedula.numero || '—'}</span>.
             </p>
@@ -385,15 +394,15 @@ export function ExpedienteDetalle({
               href={MINTRABAJO_CONSULTA_ALTURAS}
               target="_blank"
               rel="noreferrer"
-              className="flex h-12 items-center justify-center gap-2 rounded-lg px-4 text-[15px] font-bold shadow-md hover:opacity-90"
+              className="flex h-11 items-center justify-center gap-2 rounded-lg px-4 text-[15px] font-bold shadow-md hover:opacity-90"
               style={{ background: 'var(--to-accent)', color: 'var(--to-bg)' }}
             >
               Verificar en el Ministerio del Trabajo ↗
             </a>
           </div>
           {cajaSistema(rvs.alturas)}
-          <p className="text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>
-            El sistema calcula esto de las fechas extraídas, y a veces se equivoca leyendo el documento — revisa la imagen antes de confirmar.
+          <p className="text-xs" style={{ color: 'var(--to-ink-muted)' }}>
+            El sistema calcula esto de las fechas extraídas y puede equivocarse: revisa la imagen.
           </p>
           {pregunta('¿Es válido el certificado de alturas al cierre de inscripción?')}
         </>
@@ -423,14 +432,13 @@ export function ExpedienteDetalle({
     ]
     return (
       <>
-        {titulo('Resumen antes de guardar', 'Revisa cada ítem; con «Editar» vuelves a cualquiera.')}
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1.5">
           {filas.map((f, n) => (
-            <div key={f.paso} className="flex items-center gap-3 rounded-[10px] border px-3.5 py-2.5" style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)' }}>
+            <div key={f.paso} className="flex items-center gap-3 rounded-[10px] border px-3 py-1.5" style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)' }}>
               <span className="font-mono-to text-xs" style={{ color: 'var(--to-ink-muted)' }}>{String(n + 1).padStart(2, '0')}</span>
               <div className="min-w-0 flex-1">
                 <div className="text-[13.5px] font-semibold" style={{ color: 'var(--to-ink)' }}>{f.titulo}</div>
-                <div className="text-xs" style={{ color: 'var(--to-ink-muted)' }}>{f.detalle}</div>
+                <div className="truncate text-xs" title={f.detalle} style={{ color: 'var(--to-ink-muted)' }}>{f.detalle}</div>
               </div>
               <EstadoPill estado={f.estado} />
               <button type="button" onClick={() => irA(f.paso)} className="text-[12.5px] font-semibold underline" style={{ color: 'var(--to-accent)' }}>Editar</button>
@@ -454,15 +462,18 @@ export function ExpedienteDetalle({
       />
 
       <aside className="flex w-[460px] shrink-0 flex-col border-l" style={{ background: 'var(--to-bg)', borderColor: 'var(--to-border)' }}>
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-[11px] font-bold tracking-wide uppercase" style={{ color: 'var(--to-ink-muted)' }}>Aspirante</div>
-              <div className="text-[19px] leading-tight font-bold" style={{ color: 'var(--to-ink)' }}>{(formulario.nombre || '—').toUpperCase()}</div>
-              <div className="font-mono-to text-[13px]" style={{ color: 'var(--to-ink-muted)' }}>C.C. {cedula.numero || '—'}</div>
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-5 py-2">
+          <div className="flex items-baseline justify-between gap-3">
+            <div className="min-w-0 truncate text-[16px] font-bold" style={{ color: 'var(--to-ink)' }} title={(formulario.nombre || '—').toUpperCase()}>
+              {(formulario.nombre || '—').toUpperCase()}
             </div>
-            <EstadoBadge estado={claveEstado(estadoHeader)} texto={estadoHeader} />
+            <div className="font-mono-to shrink-0 text-[12.5px]" style={{ color: 'var(--to-ink-muted)' }}>C.C. {cedula.numero || '—'}</div>
           </div>
+          {expediente.estado_confirmado_por_humano && (
+            <div className="-mt-1.5 flex items-center gap-2 text-xs" style={{ color: 'var(--to-ink-muted)' }}>
+              Guardado como <EstadoBadge estado={claveEstado(estadoHeader)} texto={estadoHeader} pequeno />
+            </div>
+          )}
 
           <nav aria-label="Pasos de la revisión" className="flex items-center gap-1.5">
             {PASOS.map((p, i) => {
@@ -476,10 +487,10 @@ export function ExpedienteDetalle({
                     aria-label={`Paso ${i + 1}: ${ETIQUETA_STEPPER[i]}`}
                     aria-current={actual ? 'step' : undefined}
                     title={ETIQUETA_STEPPER[i]}
-                    className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full text-[13px] font-bold"
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[12.5px] font-bold"
                     style={
                       actual
-                        ? { background: 'var(--to-accent)', color: 'var(--to-bg)', boxShadow: '0 0 0 4px var(--to-accent-tint-border)' }
+                        ? { background: 'var(--to-accent)', color: 'var(--to-bg)', boxShadow: '0 0 0 3px var(--to-accent-tint-border)' }
                         : ok
                           ? { background: 'var(--to-good)', color: 'var(--to-bg)' }
                           : { background: 'var(--to-surface)', color: 'var(--to-ink-muted)', border: '1.5px solid var(--to-border)' }
@@ -493,40 +504,33 @@ export function ExpedienteDetalle({
             })}
           </nav>
 
-          <div
-            className="rounded-lg border px-3.5 py-2.5 text-[13px] font-bold tracking-wide uppercase"
-            style={{ background: 'var(--to-accent-tint)', borderColor: 'var(--to-accent-tint-border)', color: 'var(--to-accent)' }}
-          >
-            Paso {paso + 1} de {PASOS.length} · {PASOS[paso].titulo}
-          </div>
-
-          <div className="flex flex-col gap-3.5">{cuerpoPaso()}</div>
+          <div className="flex flex-col gap-2">{cuerpoPaso()}</div>
         </div>
 
-        <div className="flex flex-col gap-2.5 border-t px-5 py-3.5" style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)' }}>
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-[12.5px] font-bold" style={{ color: 'var(--to-ink)' }}>Decisión con tu revisión</div>
-            <EstadoBadge estado={claveEstado(estadoFinal)} texto={estadoFinal} />
-          </div>
-          {paso === PASO_RESUMEN && causalFinal && <p className="text-xs" style={{ color: 'var(--to-ink-muted)' }}>{causalFinal}</p>}
+        <div className="flex flex-col gap-2 border-t px-5 py-2" style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)' }}>
+          {paso === PASO_RESUMEN && (
+            <div className="flex items-center gap-2.5">
+              <EstadoBadge estado={claveEstado(estadoFinal)} texto={estadoFinal} pequeno />
+              {causalFinal && <p className="line-clamp-2 min-w-0 text-xs leading-snug" style={{ color: 'var(--to-ink-muted)' }} title={causalFinal}>{causalFinal}</p>}
+            </div>
+          )}
 
           {paso === PASO_RESUMEN ? (
             <>
               {!decisionFinal && (
                 <p className="text-[12.5px]" style={{ color: 'var(--to-ink-muted)' }}>
-                  Todavía hay ítems pendientes de confirmar (formulario, cédula, relacionado, alturas, médica) — resuélvelos para poder guardar una decisión final.
+                  Hay ítems por confirmar: resuélvelos para poder guardar.
                 </p>
               )}
-              <label className="flex flex-col gap-1 text-xs font-semibold" style={{ color: 'var(--to-ink)' }}>
-                Tu nombre (queda registrado en la auditoría)
-                <input
-                  type="text"
-                  value={estado.revisado_por}
-                  onChange={(e) => set('revisado_por', e.target.value)}
-                  className="h-[38px] rounded-lg border px-3 text-sm font-normal"
-                  style={{ borderColor: 'var(--to-border)', background: 'var(--to-surface)', color: 'var(--to-ink)' }}
-                />
-              </label>
+              <input
+                type="text"
+                value={estado.revisado_por}
+                onChange={(e) => set('revisado_por', e.target.value)}
+                aria-label="Tu nombre (queda registrado en la auditoría)"
+                placeholder="Tu nombre (queda registrado en la auditoría)"
+                className="h-9 rounded-lg border px-3 text-sm"
+                style={{ borderColor: 'var(--to-border)', background: 'var(--to-surface)', color: 'var(--to-ink)' }}
+              />
               <div className="flex gap-2.5">
                 <button type="button" onClick={anterior} className="h-10 shrink-0 rounded-lg border px-4 text-sm font-semibold" style={{ borderColor: 'var(--to-border)', background: 'var(--to-surface)', color: 'var(--to-ink)' }}>← Anterior</button>
                 <button
@@ -539,14 +543,13 @@ export function ExpedienteDetalle({
                   {guardar.isPending ? 'Guardando…' : 'Guardar revisión en Google Sheets'}
                 </button>
               </div>
-              <p className="text-xs" style={{ color: 'var(--to-ink-muted)' }}>Al guardar, vuelves a la lista de aspirantes.</p>
               {mensajeError && <p className="text-sm" style={{ color: 'var(--to-bad)' }}>{mensajeError}</p>}
             </>
           ) : (
             <div className="flex items-center gap-2.5">
               <button type="button" onClick={anterior} disabled={paso === 0 && itemIdx === 0} className="h-10 shrink-0 rounded-lg border px-4 text-sm font-semibold disabled:opacity-40" style={{ borderColor: 'var(--to-border)', background: 'var(--to-surface)', color: 'var(--to-ink)' }}>← Anterior</button>
-              <div className="flex flex-1 items-center justify-center gap-1.5" aria-hidden="true">
-                <Tecla>←</Tecla><Tecla>→</Tecla><Tecla>1</Tecla><Tecla>2</Tecla><Tecla>3</Tecla>
+              <div className="flex min-w-0 flex-1 justify-center" title="Decisión con tu revisión hasta ahora">
+                <EstadoBadge estado={claveEstado(estadoFinal)} texto={estadoFinal} pequeno />
               </div>
               <button type="button" onClick={siguiente} className="h-10 shrink-0 rounded-lg px-4 text-sm font-semibold" style={{ background: 'var(--to-accent)', color: 'var(--to-bg)' }}>Siguiente →</button>
             </div>

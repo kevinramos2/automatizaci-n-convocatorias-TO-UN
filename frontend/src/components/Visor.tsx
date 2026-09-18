@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { urlPagina } from '../api/client'
 import { ModalPaginas } from './ModalPaginas'
+import { Tecla } from './OpcionesGrandes'
 
 export interface PaginaVisor {
   pagina: number
@@ -71,6 +72,11 @@ export function Visor({
             Paso {paso} de {totalPasos}
           </div>
           <h2 className="truncate text-[20px] leading-tight font-bold" style={{ color: 'var(--to-ink)' }}>{titulo}</h2>
+        </div>
+        <div className="ml-auto flex shrink-0 items-center gap-1" style={{ color: 'var(--to-ink-muted)' }} title="Atajos de teclado: ← → cambian de ítem o paso; 1, 2 y 3 eligen la respuesta">
+          <Tecla>←</Tecla><Tecla>→</Tecla>
+          <span className="mx-1 h-4 w-px" style={{ background: 'var(--to-border)' }} aria-hidden="true" />
+          <Tecla>1</Tecla><Tecla>2</Tecla><Tecla>3</Tecla>
         </div>
       </div>
 
