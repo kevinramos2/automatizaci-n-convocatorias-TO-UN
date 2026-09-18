@@ -8,7 +8,7 @@ export interface ResultadoRegla {
 
 export interface Documento {
   tipo: string
-  paginas: number[]
+  paginas?: number[]
   datos: Record<string, unknown>
 }
 
@@ -23,7 +23,7 @@ export interface Estudio {
   fecha_inicio: string | null
   fecha_fin: string | null
   fecha_terminacion?: string | null
-  paginas: number[]
+  paginas?: number[]
   relacionado_sugerido: 'SI' | 'NO' | null
   justificacion_relacionado: string | null
 }
@@ -39,7 +39,7 @@ export interface Laboral {
   es_declaracion_jurada_independiente: boolean | null
   notariada: boolean | null
   formato_valido: boolean | null
-  paginas: number[]
+  paginas?: number[]
   relacionado_sugerido: 'SI' | 'NO' | null
   justificacion_relacionado: string | null
 }
@@ -49,7 +49,7 @@ export interface Alturas {
   entidad_emisora: string | null
   fecha_expedicion: string | null
   fecha_vencimiento: string | null
-  paginas: number[]
+  paginas?: number[]
 }
 
 export interface Medica {
@@ -57,7 +57,7 @@ export interface Medica {
   entidad_emisora: string | null
   fecha_expedicion: string | null
   concepto_aptitud_alturas: boolean | null
-  paginas: number[]
+  paginas?: number[]
 }
 
 export interface Formulario {

@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { Sidebar } from './components/Sidebar'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { ExpedienteDetalle } from './components/ExpedienteDetalle'
 import { useExpediente } from './hooks/useExpedientes'
 
@@ -35,7 +36,9 @@ function AppInterna() {
         )}
         {hashSeleccionado && isLoading && <p style={{ color: 'var(--to-ink-muted)' }}>Cargando…</p>}
         {hashSeleccionado && expediente && (
-          <ExpedienteDetalle key={expediente._hash} expediente={expediente} />
+          <ErrorBoundary key={expediente._hash}>
+            <ExpedienteDetalle expediente={expediente} />
+          </ErrorBoundary>
         )}
       </main>
     </div>

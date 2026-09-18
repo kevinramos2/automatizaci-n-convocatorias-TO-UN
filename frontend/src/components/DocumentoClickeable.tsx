@@ -6,13 +6,16 @@ import { urlPagina } from '../api/client'
 // que abre un modal real; React maneja el clic de forma nativa.
 export function DocumentoClickeable({
   hash,
-  paginas,
+  paginas: paginasProp,
   etiqueta,
 }: {
   hash: string
-  paginas: number[]
+  paginas?: number[] | null
   etiqueta?: string | null
 }) {
+  // Algunos expedientes cacheados traen documentos sin "paginas" (Streamlit usaba
+  // .get("paginas", [])) — no debe romper toda la pantalla.
+  const paginas = paginasProp ?? []
   const [abierto, setAbierto] = useState(false)
 
   useEffect(() => {
