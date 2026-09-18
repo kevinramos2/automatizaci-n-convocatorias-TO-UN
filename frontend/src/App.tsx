@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ExpedienteDetalle } from './components/ExpedienteDetalle'
+import { Tutorial } from './components/Tutorial'
 import { API_VERSION_ESPERADA } from './api/client'
 import { useConfig, useConvocatorias, useExpediente } from './hooks/useExpedientes'
 
@@ -104,11 +105,7 @@ function AppInterna() {
                 {aviso}
               </p>
             )}
-            <p style={{ color: 'var(--to-ink-muted)' }}>
-              {hashSeleccionado && isLoading
-                ? 'Cargando…'
-                : 'Elige un aspirante en la lista de la izquierda para comenzar la revisión.'}
-            </p>
+            {hashSeleccionado && isLoading ? <p style={{ color: 'var(--to-ink-muted)' }}>Cargando…</p> : <Tutorial />}
           </main>
         )}
       </div>
