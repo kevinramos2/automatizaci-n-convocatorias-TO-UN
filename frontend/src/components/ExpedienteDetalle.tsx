@@ -46,11 +46,16 @@ function claveEstado(estadoDecision: string): string {
   return 'requiere_revision_manual'
 }
 
-export function ExpedienteDetalle({ expediente }: { expediente: Expediente }) {
+export function ExpedienteDetalle({
+  expediente,
+  onGuardado,
+}: {
+  expediente: Expediente
+  onGuardado: (estadoFinal: string) => void
+}) {
   const { estado, set, setEnMapa, preview } = useRevisionState(expediente)
   const guardar = useGuardarRevision(expediente._hash)
   const [mensajeError, setMensajeError] = useState<string | null>(null)
-  const [mensajeExito, setMensajeExito] = useState<string | null>(null)
 
   const hash = expediente._hash
   const { formulario, cedula, estudios, laborales, alturas, medica } = expediente
@@ -64,10 +69,11 @@ export function ExpedienteDetalle({ expediente }: { expediente: Expediente }) {
 
   async function manejarGuardar() {
     setMensajeError(null)
-    setMensajeExito(null)
     try {
       const r = await guardar.mutateAsync(estado)
-      setMensajeExito(`Revisión guardada. Estado final: ${r.estado_final}`)
+      // Igual que Streamlit tras guardar: se quita al aspirante de la vista y
+      // queda la pantalla de "elige un aspirante" (el padre muestra el aviso).
+      onGuardado(r.estado_final)
     } catch (e) {
       setMensajeError(e instanceof ErrorAPI ? e.message : 'No se pudo guardar la revisión.')
     }
@@ -415,7 +421,6 @@ export function ExpedienteDetalle({ expediente }: { expediente: Expediente }) {
             {guardar.isPending ? 'Guardando…' : 'Guardar revisión en Google Sheets'}
           </button>
         </div>
-        {mensajeExito && <p className="mt-2 text-sm" style={{ color: 'var(--to-good)' }}>{mensajeExito}</p>}
         {mensajeError && <p className="mt-2 text-sm" style={{ color: 'var(--to-bad)' }}>{mensajeError}</p>}
       </section>
     </div>

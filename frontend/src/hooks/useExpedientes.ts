@@ -33,12 +33,14 @@ export function useGuardarRevision(hash: string | null) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (datos: RevisionInput) => guardarRevision(hash as string, datos),
-    onSuccess: () => {
-      // Refresca la lista (buckets Pendientes/Admitidos/No admitidos) y el
-      // expediente actual — mismo espíritu del st.rerun() de Streamlit tras guardar.
-      qc.invalidateQueries({ queryKey: ['expedientes'] })
-      qc.invalidateQueries({ queryKey: ['expediente', hash] })
-    },
+    // Se devuelve la promesa para que la mutación no termine hasta que la lista
+    // (buckets Pendientes/Admitidos/No admitidos) y el expediente ya estén
+    // refrescados — mismo espíritu del st.rerun() de Streamlit tras guardar.
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: ['expedientes'] }),
+        qc.invalidateQueries({ queryKey: ['expediente', hash] }),
+      ]),
   })
 }
 
