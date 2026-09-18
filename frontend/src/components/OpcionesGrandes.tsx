@@ -12,10 +12,10 @@ const TONOS: Record<Tono, { color: string; bg: string; borde: string }> = {
   neutral: { color: 'var(--to-ink)', bg: 'var(--to-surface-2)', borde: 'var(--to-ink-muted)' },
 }
 
-export function Tecla({ children }: { children: string }) {
+export function Tecla({ children, pequena = false }: { children: string; pequena?: boolean }) {
   return (
     <span
-      className="font-mono-to inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-[5px] border border-b-2 px-1.5 text-xs"
+      className={`font-mono-to inline-flex items-center justify-center rounded-[5px] border border-b-2 ${pequena ? 'h-[18px] min-w-[18px] px-1 text-[10.5px]' : 'h-[22px] min-w-[22px] px-1.5 text-xs'}`}
       style={{ borderColor: 'var(--to-border)', color: 'var(--to-ink-muted)', background: 'var(--to-surface-2)' }}
     >
       {children}
@@ -43,7 +43,7 @@ export function OpcionesGrandes({
         return (
           <label
             key={o.valor}
-            className="relative flex flex-1 basis-0 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 px-1.5 py-3.5 text-center focus-within:ring-2 focus-within:ring-[var(--to-accent)]"
+            className="relative flex min-h-[54px] flex-1 basis-0 cursor-pointer items-center justify-center rounded-xl border-2 px-5 py-2.5 text-center focus-within:ring-2 focus-within:ring-[var(--to-accent)]"
             style={{
               background: activa ? t.bg : 'var(--to-surface)',
               borderColor: activa ? t.borde : 'var(--to-border)',
@@ -58,8 +58,8 @@ export function OpcionesGrandes({
               onChange={() => onChange(o.valor)}
               className="sr-only"
             />
-            <span className="text-[15px] leading-tight font-bold">{o.etiqueta ?? o.valor}</span>
-            <Tecla>{String(i + 1)}</Tecla>
+            <span className="text-[14px] leading-tight font-bold">{o.etiqueta ?? o.valor}</span>
+            <span className="absolute top-1 right-1"><Tecla pequena>{String(i + 1)}</Tecla></span>
           </label>
         )
       })}
