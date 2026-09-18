@@ -48,9 +48,9 @@ export function Visor({
   const [ampliado, setAmpliado] = useState(false)
   const [tira, setTira] = useState(() => {
     try {
-      return localStorage.getItem('to-visor-tira') !== 'oculta'
+      return localStorage.getItem('to-visor-tira') === 'visible'
     } catch {
-      return true
+      return false
     }
   })
   function alternarTira() {
