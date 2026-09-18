@@ -75,6 +75,12 @@ _NIVELES_ESCOLARES = {"primaria", "secundaria"}
 # Confirmación humana de que el aspirante entregó el formulario y la fotocopia de la
 # cédula (lista de chequeo). Reemplaza a la antigua comparación de firmas, que en la
 # práctica Personal Administrativo no valida.
+# Versión del contrato entre la API y el panel. Se sube cada vez que cambia lo que el
+# panel envía o espera; el panel avisa si la API que está corriendo es más vieja
+# (el servidor no se recarga solo en esta carpeta, y una API vieja ignora en
+# silencio los campos nuevos).
+API_VERSION = 3
+
 _OPCIONES_APORTO = {"Pendiente": None, "Sí aportó": True, "No aportó": False}
 # Revisiones guardadas antes de separar formulario y cédula ("firma_verificada" o "entrega_verificada").
 _ENTREGA_ANTIGUA = {"Sí coincide": "Sí aportó", "Sí, entregó ambos": "Sí aportó", "No coincide": "No aportó", "No, falta alguno": "No aportó", "Pendiente": "Pendiente"}
@@ -228,7 +234,10 @@ def config_publica():
     directo del ID de la hoja, sin autenticar.
     """
     spreadsheet_id = os.environ.get("GOOGLE_SHEETS_SPREADSHEET_ID")
-    return {"sheet_url": f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit" if spreadsheet_id else None}
+    return {
+        "sheet_url": f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit" if spreadsheet_id else None,
+        "api_version": API_VERSION,
+    }
 
 
 @app.get("/api/expedientes")

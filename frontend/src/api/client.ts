@@ -39,7 +39,10 @@ export function listarConvocatorias(): Promise<Record<string, string>> {
   return pedir('/convocatorias')
 }
 
-export function obtenerConfig(): Promise<{ sheet_url: string | null }> {
+// Debe coincidir con API_VERSION de api/main.py.
+export const API_VERSION_ESPERADA = 3
+
+export function obtenerConfig(): Promise<{ sheet_url: string | null; api_version?: number }> {
   return pedir('/config')
 }
 

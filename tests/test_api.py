@@ -175,6 +175,11 @@ def test_revision_guardada_con_el_formato_anterior_se_lee_como_dos_respuestas():
     assert rev["entrega_formulario"] == "No aportó" and rev["entrega_cedula"] == "Pendiente"
 
 
+def test_config_informa_la_version_de_la_api():
+    r = client.get("/api/config").json()
+    assert r["api_version"] == api_main.API_VERSION
+
+
 def test_procesar_rechaza_convocatoria_invalida():
     r = client.post(
         "/api/expedientes/procesar",

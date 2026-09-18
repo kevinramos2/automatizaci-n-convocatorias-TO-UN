@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ExpedienteDetalle } from './components/ExpedienteDetalle'
+import { API_VERSION_ESPERADA } from './api/client'
 import { useConfig, useConvocatorias, useExpediente } from './hooks/useExpedientes'
 
 const queryClient = new QueryClient()
@@ -62,6 +63,17 @@ function AppInterna() {
           {oscuro ? 'Tema claro' : 'Tema oscuro'}
         </button>
       </header>
+
+      {config && config.api_version !== API_VERSION_ESPERADA && (
+        <div
+          role="alert"
+          className="shrink-0 border-b px-5 py-3 text-sm font-semibold"
+          style={{ background: 'var(--to-bad-bg)', borderColor: 'var(--to-bad-border)', color: 'var(--to-bad)' }}
+        >
+          La API que está corriendo es una versión anterior a este panel y algunas respuestas no se tendrán en cuenta. Reiníciala: en su terminal
+          pulsa Ctrl+C y ejecuta <code className="font-mono-to">python -m uvicorn api.main:app --port 8000</code>; luego recarga esta página.
+        </div>
+      )}
 
       <div className="flex min-h-0 flex-1">
         <Sidebar
