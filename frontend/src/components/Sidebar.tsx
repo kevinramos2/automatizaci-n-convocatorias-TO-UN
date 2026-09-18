@@ -95,8 +95,12 @@ export function Sidebar({
                   <button
                     key={o.hash}
                     type="button"
-                    onClick={() => onSeleccionar(o.hash)}
-                    className="w-full rounded-[9px] border px-2.5 py-2 text-left"
+                    onClick={(e) => {
+                      // Sin foco residual: al navegar con el teclado no debe dibujarse un aro sobre la tarjeta.
+                      e.currentTarget.blur()
+                      onSeleccionar(o.hash)
+                    }}
+                    className="w-full rounded-[9px] border px-2.5 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--to-accent)]"
                     style={{
                       background: sel ? 'var(--to-accent-tint)' : 'transparent',
                       borderColor: sel ? 'var(--to-accent-tint-border)' : 'transparent',
