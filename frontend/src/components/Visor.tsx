@@ -34,6 +34,7 @@ export function Visor({
   paso,
   totalPasos,
   titulo,
+  contenido,
 }: {
   hash: string
   paginas: PaginaVisor[]
@@ -42,6 +43,8 @@ export function Visor({
   paso: number
   totalPasos: number
   titulo: string
+  // Si se da, reemplaza al visor y a las miniaturas (p. ej. la galería del resumen).
+  contenido?: ReactNode
 }) {
   const [zoom, setZoom] = useState(1)
   const [giro, setGiro] = useState(0)
@@ -106,7 +109,9 @@ export function Visor({
       </div>
 
       <div className="relative min-h-0 flex-1" style={{ background: 'var(--to-viewer)' }}>
-        {paginaActual ? (
+        {contenido ? (
+          contenido
+        ) : paginaActual ? (
           <>
             <div className="absolute inset-0 overflow-auto">
               <div
@@ -161,6 +166,7 @@ export function Visor({
         )}
       </div>
 
+      {!contenido && (
       <div className="flex items-center justify-between border-t px-4 py-1.5" style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)' }}>
         <span className="text-xs" style={{ color: 'var(--to-ink-muted)' }}>
           {paginas.length} página{paginas.length === 1 ? '' : 's'} en {grupos.length} documento{grupos.length === 1 ? '' : 's'}
@@ -175,7 +181,8 @@ export function Visor({
           {tira ? 'Ocultar miniaturas' : 'Mostrar miniaturas'}
         </button>
       </div>
-      {tira && (
+      )}
+      {!contenido && tira && (
       <div className="flex items-stretch gap-2.5 overflow-x-auto border-t px-4 py-2.5" style={{ background: 'var(--to-surface)', borderColor: 'var(--to-border)' }}>
         {grupos.map((g, n) => (
           <div

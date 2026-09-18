@@ -5,6 +5,7 @@ import { useGuardarRevision } from '../hooks/useExpedientes'
 import { useRevisionState } from '../hooks/useRevisionState'
 import { AiBox, ETIQUETA_ESTADO, EstadoBadge, EstadoPill } from './Estado'
 import { OpcionesGrandes, type Opcion } from './OpcionesGrandes'
+import { GaleriaResumen } from './GaleriaResumen'
 import { Visor, type PaginaVisor } from './Visor'
 
 const MINTRABAJO_CONSULTA_ALTURAS = 'https://app2.mintrabajo.gov.co/CentrosEntrenamiento/consulta_ext.aspx'
@@ -89,6 +90,14 @@ function paginasConRespaldo(
 
 function aPaginas(paginas: number[] | undefined, etiqueta: string | null): PaginaVisor[] {
   return (paginas ?? []).map((pagina, i) => ({ pagina, etiqueta, inicioDoc: i === 0 }))
+}
+
+interface FilaResumen {
+  paso: number
+  titulo: string
+  estado: string
+  detalle: string
+  revision: string
 }
 
 interface Control {
@@ -306,6 +315,33 @@ export function ExpedienteDetalle({
     <p className="rounded-lg border p-4 text-sm" style={{ borderColor: 'var(--to-border)', color: 'var(--to-ink-muted)', background: 'var(--to-surface)' }}>{texto}</p>
   )
 
+  // Una fila por sección del resumen (la usan la lista de la derecha y la galería del visor).
+  function construirFilas(): FilaResumen[] {
+    const res = preview?.resultados_actualizados ?? rvs
+    const nRel = idxRelacionados.length
+    const nSi = idxRelacionados.filter((i) => estado.decisiones_relacionado_estudio[i] === 'SI').length
+    const corto = (v: string) => (v === 'Sí aportó' ? 'sí' : v === 'No aportó' ? 'no' : 'pendiente')
+    const nLab = laborales.length
+    const nLabSi = laborales.filter((_, n) => estado.decisiones_relacionado_laboral[n] === 'SI').length
+    const nombresRel = idxRelacionados.map((i) => `${estudios[i].nombre_curso || estudios[i].titulo || capitalizar(estudios[i].nivel ?? 'Estudio')}: ${estado.decisiones_relacionado_estudio[i] === 'SI' ? 'sí' : estado.decisiones_relacionado_estudio[i] === 'NO' ? 'no' : 'pendiente'}`)
+    const nAcadRev = idxAcademicos.filter((i) => (estado.overrides_academicos[i] ?? 'Según el sistema') !== 'Según el sistema').length
+    return [
+      { paso: 0, titulo: 'Formulario y cédula', estado: peor([res.formulario.estado, res.cedula.estado]), detalle: res.formulario.motivo, revision: `Formulario: ${corto(estado.entrega_formulario)} · Cédula: ${corto(estado.entrega_cedula)}` },
+      { paso: 1, titulo: 'Información académica', estado: res.estudio.estado, detalle: res.estudio.motivo, revision: idxAcademicos.length ? `${idxAcademicos.length} documento(s) · ${nAcadRev} validado(s) por ti` : 'Sin documentos del colegio' },
+      { paso: 2, titulo: 'Educación relacionada', estado: hecho(2) ? 'cumple' : 'requiere_revision_manual', detalle: nRel ? `${nSi} de ${nRel} relacionados con el cargo` : 'No se aportó formación adicional', revision: nombresRel.join(' · ') || '—' },
+      { paso: 3, titulo: 'Experiencia laboral', estado: res.laboral.estado, detalle: res.laboral.motivo, revision: nLab ? `${nLabSi} de ${nLab} constancia(s) relacionada(s) según tú` : 'Sin constancias' },
+      { paso: 4, titulo: 'Certificado de alturas', estado: res.alturas.estado, detalle: res.alturas.motivo, revision: `Tu respuesta: ${estado.alturas_override}` },
+      { paso: 5, titulo: 'Evaluación médica', estado: res.medica.estado, detalle: res.medica.motivo, revision: `Tu respuesta: ${estado.medica_override}` },
+    ]
+  }
+
+  // Documentos de cada fila del resumen, para la galería del visor.
+  function seccionesGaleria() {
+    const de = (clave: string) => tabs.find((t) => t.clave === clave)?.paginas.map((p) => p.pagina) ?? []
+    const porPaso = [[...de('formulario'), ...de('cedula')], de('academica'), de('relacionada'), de('laboral'), de('alturas'), de('medica')]
+    return construirFilas().map((f) => ({ ...f, paginas: porPaso[f.paso] }))
+  }
+
   function cuerpoPaso() {
     if (paso === 0) {
       const esFormulario = itemIdx === 0
@@ -420,22 +456,7 @@ export function ExpedienteDetalle({
       )
     }
     // Resumen
-    const res = preview?.resultados_actualizados ?? rvs
-    const nRel = idxRelacionados.length
-    const nSi = idxRelacionados.filter((i) => estado.decisiones_relacionado_estudio[i] === 'SI').length
-    const corto = (v: string) => (v === 'Sí aportó' ? 'sí' : v === 'No aportó' ? 'no' : 'pendiente')
-    const nLab = laborales.length
-    const nLabSi = laborales.filter((_, n) => estado.decisiones_relacionado_laboral[n] === 'SI').length
-    const nombresRel = idxRelacionados.map((i) => `${estudios[i].nombre_curso || estudios[i].titulo || capitalizar(estudios[i].nivel ?? 'Estudio')}: ${estado.decisiones_relacionado_estudio[i] === 'SI' ? 'sí' : estado.decisiones_relacionado_estudio[i] === 'NO' ? 'no' : 'pendiente'}`)
-    const nAcadRev = idxAcademicos.filter((i) => (estado.overrides_academicos[i] ?? 'Según el sistema') !== 'Según el sistema').length
-    const filas: { paso: number; titulo: string; estado: string; detalle: string; revision: string }[] = [
-      { paso: 0, titulo: 'Formulario y cédula', estado: peor([res.formulario.estado, res.cedula.estado]), detalle: res.formulario.motivo, revision: `Formulario: ${corto(estado.entrega_formulario)} · Cédula: ${corto(estado.entrega_cedula)}` },
-      { paso: 1, titulo: 'Información académica', estado: res.estudio.estado, detalle: res.estudio.motivo, revision: idxAcademicos.length ? `${idxAcademicos.length} documento(s) · ${nAcadRev} validado(s) por ti` : 'Sin documentos del colegio' },
-      { paso: 2, titulo: 'Educación relacionada', estado: hecho(2) ? 'cumple' : 'requiere_revision_manual', detalle: nRel ? `${nSi} de ${nRel} relacionados con el cargo` : 'No se aportó formación adicional', revision: nombresRel.join(' · ') || '—' },
-      { paso: 3, titulo: 'Experiencia laboral', estado: res.laboral.estado, detalle: res.laboral.motivo, revision: nLab ? `${nLabSi} de ${nLab} constancia(s) relacionada(s) según tú` : 'Sin constancias' },
-      { paso: 4, titulo: 'Certificado de alturas', estado: res.alturas.estado, detalle: res.alturas.motivo, revision: `Tu respuesta: ${estado.alturas_override}` },
-      { paso: 5, titulo: 'Evaluación médica', estado: res.medica.estado, detalle: res.medica.motivo, revision: `Tu respuesta: ${estado.medica_override}` },
-    ]
+    const filas = construirFilas()
     return (
       <>
         <div className="flex flex-col gap-1.5">
@@ -466,6 +487,7 @@ export function ExpedienteDetalle({
         paso={paso + 1}
         totalPasos={PASOS.length}
         titulo={PASOS[paso].titulo}
+        contenido={paso === PASO_RESUMEN ? <GaleriaResumen hash={hash} secciones={seccionesGaleria()} onIr={(p) => irA(p)} /> : undefined}
       />
 
       <aside className="flex w-[460px] shrink-0 flex-col border-l" style={{ background: 'var(--to-bg)', borderColor: 'var(--to-border)' }}>
