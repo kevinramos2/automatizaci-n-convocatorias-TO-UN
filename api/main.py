@@ -95,29 +95,6 @@ def _normalizar_documentos(documentos_extraidos: list[dict]) -> list[dict]:
     ]
 
 
-def _documentos_todos(resultado: dict) -> list[dict]:
-    """TODOS los documentos que el sistema encontró en el PDF, también los que no
-
-    llegaron a un ítem del checklist: libreta militar, exámenes anexos, páginas no
-    identificadas, certificados de alturas o evaluaciones médicas adicionales, y los
-    que no se pudieron leer (tipo_final = None). El visor de React los necesita para
-    que ninguna página con contenido quede sin poder verse (antes solo se mostraba
-    el "mejor candidato" de alturas/médica y se descartaba todo lo demás).
-    """
-    logicos = {tuple(l["paginas"]): l["tipo"] for l in resultado.get("documentos_logicos", [])}
-    salida = []
-    for d in resultado.get("documentos_extraidos", []):
-        datos = d.get("datos") or {}
-        salida.append({
-            "tipo": d.get("tipo_final"),
-            "tipo_clasificado": logicos.get(tuple(d["paginas"])),
-            "paginas": d["paginas"],
-            "con_datos": bool(datos),
-            "entidad": datos.get("entidad_emisora") or datos.get("institucion") or datos.get("entidad"),
-        })
-    return salida
-
-
 def _aplicar_override_manual(automatico: ResultadoRegla, eleccion: str) -> ResultadoRegla:
     if eleccion == "Sí, válido":
         return ResultadoRegla(CUMPLE, "Confirmado manualmente por el revisor, viendo el documento.")
@@ -204,7 +181,6 @@ def _resultado_serializable(hash_: str) -> dict:
     """
     resultado = _cargar_o_404(hash_)
     resultado["resultados_validacion"] = {k: asdict(v) for k, v in resultado["resultados_validacion"].items()}
-    resultado["documentos_todos"] = _documentos_todos(resultado)
     resultado["documentos"] = _normalizar_documentos(resultado.pop("documentos_extraidos", []))
 
     # Revisiones guardadas antes del cambio usaban "firma_verificada" (Sí coincide/...).
