@@ -1,0 +1,31 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap');
+@import "tailwindcss";
+
+/* Misma paleta que app_revision.py:_PALETA_CLARA / _PALETA_OSCURA — se porta tal
+   cual para que React se vea igual al panel de Streamlit que reemplaza. */
+:root {
+  --to-bg: #faf9f5; --to-surface: #ffffff; --to-surface-2: #f3f1ea; --to-border: #e4e0d4;
+  --to-ink: #21242b; --to-ink-muted: #5c6270; --to-ink-faint: #8b8f9c;
+  --to-accent: #1d3557; --to-accent-tint: #e9eef5; --to-accent-tint-border: #c9d6e8;
+  --to-good: #2e7d46; --to-good-bg: #e8f4ea; --to-good-border: #bfe0c8;
+  --to-warn: #8a6100; --to-warn-bg: #fdf3d9; --to-warn-border: #f2dda0;
+  --to-bad: #a3312f; --to-bad-bg: #fbe7e7; --to-bad-border: #f2c4c3;
+}
+
+[data-theme="dark"] {
+  --to-bg: #14161b; --to-surface: #1b1e25; --to-surface-2: #21242c; --to-border: #2e323c;
+  --to-ink: #e9eaee; --to-ink-muted: #a5aab6; --to-ink-faint: #767c8a;
+  --to-accent: #7fa0d1; --to-accent-tint: #1e2735; --to-accent-tint-border: #2c3c54;
+  --to-good: #6fbf85; --to-good-bg: #1b2c20; --to-good-border: #2e4a34;
+  --to-warn: #e0b84a; --to-warn-bg: #332a12; --to-warn-border: #55461d;
+  --to-bad: #e08585; --to-bad-bg: #362020; --to-bad-border: #55302f;
+}
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  background: var(--to-bg);
+  color: var(--to-ink);
+}
+.font-mono-to { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
