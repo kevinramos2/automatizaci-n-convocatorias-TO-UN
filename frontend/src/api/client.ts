@@ -9,8 +9,10 @@ import type {
   RevisionResultado,
 } from './types'
 
-// vite.config.ts hace proxy de /api -> http://127.0.0.1:8000 en dev.
-const BASE = '/api'
+// En desarrollo, vite.config.ts hace proxy de /api -> http://127.0.0.1:8000, así que
+// una ruta relativa basta. En producción (p. ej. frontend en Vercel, backend en Render
+// en otro dominio) no hay proxy posible: VITE_API_URL fija el origen del backend.
+const BASE = `${import.meta.env.VITE_API_URL ?? ''}/api`
 
 class ErrorAPI extends Error {
   status: number
