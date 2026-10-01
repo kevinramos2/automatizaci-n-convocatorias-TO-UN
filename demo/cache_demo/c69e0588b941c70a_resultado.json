@@ -1,0 +1,269 @@
+{
+  "paginas_blancas": [],
+  "clasificacion": [],
+  "documentos_logicos": [],
+  "documentos_extraidos": [
+    {
+      "tipo_final": "formulario_inscripcion",
+      "paginas": [
+        1
+      ],
+      "datos": {
+        "clasificacion_correcta": true,
+        "numero_proceso_declarado": "TO-01",
+        "cargo_declarado_encabezado": "TO-01",
+        "cargo_declarado_requisitos": "TO-01",
+        "fecha_inscripcion": "2026-09-10",
+        "nombre": "ASPIRANTE DE PRUEBA TRES",
+        "cedula": "1000000003",
+        "correo": "aspirante.prueba@ejemplo.test",
+        "celular": "3000000000",
+        "telefono_fijo": null,
+        "direccion": "Calle de prueba # 0-00, Yopal",
+        "discapacidad": "No",
+        "tipo_discapacidad": null,
+        "certificado_alturas_fecha_declarada": "2026-07-01",
+        "evaluacion_medica_fecha_declarada": "2026-09-05",
+        "educacion_formal": [],
+        "educacion_relacionada": [],
+        "experiencia": [
+          {
+            "numero_fila": 1,
+            "cargo_desempenado": "Jardinero",
+            "entidad": "Jardines de Prueba",
+            "funcion_principal": "Mantenimiento de zonas verdes (dato de prueba).",
+            "fecha_desde": "2025-01-01",
+            "fecha_hasta": "2025-09-01",
+            "total_meses_declarado": null
+          },
+          {
+            "numero_fila": 2,
+            "cargo_desempenado": "Operario de aseo general",
+            "entidad": "Servicios Generales de Prueba",
+            "funcion_principal": "Aseo y mantenimiento locativo general, incluye zonas verdes ocasionalmente (dato de prueba).",
+            "fecha_desde": "2024-06-01",
+            "fecha_hasta": "2024-12-01",
+            "total_meses_declarado": null
+          }
+        ],
+        "firma_presente": true
+      },
+      "reclasificado_automaticamente": false,
+      "requiere_revision_tipo": false,
+      "uso": {
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    },
+    {
+      "tipo_final": "cedula",
+      "paginas": [
+        2
+      ],
+      "datos": {
+        "clasificacion_correcta": true,
+        "aportada": true,
+        "numero": "1000000003",
+        "nombre": "ASPIRANTE DE PRUEBA TRES",
+        "legible": true
+      },
+      "reclasificado_automaticamente": false,
+      "requiere_revision_tipo": false,
+      "uso": {
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    }
+  ],
+  "formulario": {
+    "clasificacion_correcta": true,
+    "numero_proceso_declarado": "TO-01",
+    "cargo_declarado_encabezado": "TO-01",
+    "cargo_declarado_requisitos": "TO-01",
+    "fecha_inscripcion": "2026-09-10",
+    "nombre": "ASPIRANTE DE PRUEBA TRES",
+    "cedula": "1000000003",
+    "correo": "aspirante.prueba@ejemplo.test",
+    "celular": "3000000000",
+    "telefono_fijo": null,
+    "direccion": "Calle de prueba # 0-00, Yopal",
+    "discapacidad": "No",
+    "tipo_discapacidad": null,
+    "certificado_alturas_fecha_declarada": "2026-07-01",
+    "evaluacion_medica_fecha_declarada": "2026-09-05",
+    "educacion_formal": [],
+    "educacion_relacionada": [],
+    "experiencia": [
+      {
+        "numero_fila": 1,
+        "cargo_desempenado": "Jardinero",
+        "entidad": "Jardines de Prueba",
+        "funcion_principal": "Mantenimiento de zonas verdes (dato de prueba).",
+        "fecha_desde": "2025-01-01",
+        "fecha_hasta": "2025-09-01",
+        "total_meses_declarado": null
+      },
+      {
+        "numero_fila": 2,
+        "cargo_desempenado": "Operario de aseo general",
+        "entidad": "Servicios Generales de Prueba",
+        "funcion_principal": "Aseo y mantenimiento locativo general, incluye zonas verdes ocasionalmente (dato de prueba).",
+        "fecha_desde": "2024-06-01",
+        "fecha_hasta": "2024-12-01",
+        "total_meses_declarado": null
+      }
+    ],
+    "firma_presente": true
+  },
+  "cedula": {
+    "clasificacion_correcta": true,
+    "aportada": true,
+    "numero": "1000000003",
+    "nombre": "ASPIRANTE DE PRUEBA TRES",
+    "legible": true
+  },
+  "estudios": [
+    {
+      "clasificacion_correcta": true,
+      "institucion": "Institución Educativa de Prueba 2",
+      "titulo": "Bachiller Académico",
+      "ultimo_anio_cursado": "11",
+      "nivel": "secundaria",
+      "es_boletin": false,
+      "nombre_curso": null,
+      "horas": null,
+      "fecha_inicio": null,
+      "fecha_fin": "2012-12-01",
+      "paginas": [
+        3
+      ],
+      "relacionado_sugerido": null,
+      "justificacion_relacionado": null,
+      "relacionado": "PENDIENTE"
+    }
+  ],
+  "laborales": [
+    {
+      "clasificacion_correcta": true,
+      "entidad": "Jardines de Prueba",
+      "cargo": "Jardinero",
+      "jornada": null,
+      "fecha_inicio": "2025-01-01",
+      "fecha_fin": "2025-09-01",
+      "funciones": "Mantenimiento de zonas verdes (dato de prueba).",
+      "firmada_jefe": true,
+      "es_declaracion_jurada_independiente": false,
+      "notariada": null,
+      "formato_valido": true,
+      "paginas": [
+        4
+      ],
+      "relacionado_sugerido": "SI",
+      "justificacion_relacionado": "Cargo igual al del cargo al que aspira.",
+      "relacionado": "PENDIENTE"
+    },
+    {
+      "clasificacion_correcta": true,
+      "entidad": "Servicios Generales de Prueba",
+      "cargo": "Operario de aseo general",
+      "jornada": null,
+      "fecha_inicio": "2024-06-01",
+      "fecha_fin": "2024-12-01",
+      "funciones": "Aseo y mantenimiento locativo general, incluye zonas verdes ocasionalmente (dato de prueba).",
+      "firmada_jefe": true,
+      "es_declaracion_jurada_independiente": false,
+      "notariada": null,
+      "formato_valido": true,
+      "paginas": [
+        5
+      ],
+      "relacionado_sugerido": "PENDIENTE",
+      "justificacion_relacionado": "Las funciones mencionan zonas verdes solo de forma ocasional — no está claro que sea el foco del cargo; conviene que lo confirme el revisor.",
+      "relacionado": "PENDIENTE"
+    }
+  ],
+  "alturas": {
+    "clasificacion_correcta": true,
+    "aportado": true,
+    "entidad_emisora": "Centro de Prueba de Alturas",
+    "fecha_expedicion": "2026-07-01",
+    "fecha_vencimiento": "2027-07-01",
+    "paginas": [
+      6
+    ]
+  },
+  "medica": {
+    "clasificacion_correcta": true,
+    "aportado": true,
+    "entidad_emisora": "IPS de Prueba 2",
+    "fecha_expedicion": "2026-09-05",
+    "concepto_aptitud_alturas": true,
+    "es_certificado_preingreso_general": false,
+    "paginas": [
+      7
+    ]
+  },
+  "resultados_validacion": {
+    "formulario": {
+      "estado": "requiere_revision_manual",
+      "motivo": "Formulario completo y coincidente; pendiente confirmar la entrega del formulario y la cédula"
+    },
+    "cedula": {
+      "estado": "cumple",
+      "motivo": "Cédula aportada y legible"
+    },
+    "estudio": {
+      "estado": "cumple",
+      "motivo": "1 constancia(s) de estudio válida(s); acredita el nivel mínimo exigido"
+    },
+    "laboral": {
+      "estado": "requiere_revision_manual",
+      "motivo": "0 meses confirmados; 2 experiencia(s) pendiente(s) de confirmar si están relacionadas con el cargo"
+    },
+    "alturas": {
+      "estado": "cumple",
+      "motivo": "Certificado de alturas vigente hasta 2027-07-01 (cierre de inscripción: 2026-09-18)"
+    },
+    "medica": {
+      "estado": "cumple",
+      "motivo": "Evaluación médica expedida el 2026-09-05, dentro de la ventana de 30 días previos al cierre"
+    }
+  },
+  "decision": {
+    "estado_sugerido": "PENDIENTE DE REVISIÓN",
+    "causal_sugerida": null,
+    "items_pendientes": [
+      "formulario",
+      "laboral"
+    ]
+  },
+  "inconsistencias": [
+    {
+      "tipo": "fecha_no_coincide",
+      "entidad_formulario": "Servicios Generales de Prueba",
+      "entidad_constancia": "Jardines de Prueba",
+      "campo": "fecha de inicio",
+      "valor_formulario": "2024-06-01",
+      "valor_constancia": "2025-01-01",
+      "diferencia_dias": 214,
+      "detalle": "En 'Servicios Generales de Prueba', la fecha de inicio declarada en el formulario (2024-06-01) difiere 214 días de la constancia laboral (2025-01-01)."
+    },
+    {
+      "tipo": "fecha_no_coincide",
+      "entidad_formulario": "Servicios Generales de Prueba",
+      "entidad_constancia": "Jardines de Prueba",
+      "campo": "fecha de fin",
+      "valor_formulario": "2024-12-01",
+      "valor_constancia": "2025-09-01",
+      "diferencia_dias": 274,
+      "detalle": "En 'Servicios Generales de Prueba', la fecha de fin declarada en el formulario (2024-12-01) difiere 274 días de la constancia laboral (2025-09-01)."
+    }
+  ],
+  "uso_total": {
+    "input_tokens": 0,
+    "output_tokens": 0
+  },
+  "convocatoria": "TO-01",
+  "rotacion": 0,
+  "rotaciones_paginas": {}
+}

@@ -5,6 +5,7 @@ import {
   listarExpedientes,
   obtenerConfig,
   obtenerExpediente,
+  obtenerHojaSimulada,
   procesarExpediente,
 } from '../api/client'
 import type { RevisionInput } from '../api/types'
@@ -29,6 +30,12 @@ export function useConfig() {
   return useQuery({ queryKey: ['config'], queryFn: obtenerConfig })
 }
 
+// Solo se usa cuando config.demo_mode es true (ver App.tsx) — la lista de
+// "filas guardadas" en el demo, como reemplazo de abrir el Google Sheet real.
+export function useHojaSimulada(habilitada: boolean) {
+  return useQuery({ queryKey: ['hoja-simulada'], queryFn: obtenerHojaSimulada, enabled: habilitada })
+}
+
 export function useGuardarRevision(hash: string | null) {
   const qc = useQueryClient()
   return useMutation({
@@ -40,6 +47,7 @@ export function useGuardarRevision(hash: string | null) {
       Promise.all([
         qc.invalidateQueries({ queryKey: ['expedientes'] }),
         qc.invalidateQueries({ queryKey: ['expediente', hash] }),
+        qc.invalidateQueries({ queryKey: ['hoja-simulada'] }),
       ]),
   })
 }

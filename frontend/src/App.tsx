@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ExpedienteDetalle } from './components/ExpedienteDetalle'
+import { HojaSimulada } from './components/HojaSimulada'
 import { Tutorial } from './components/Tutorial'
 import { API_VERSION_ESPERADA } from './api/client'
 import { useConfig, useConvocatorias, useExpediente } from './hooks/useExpedientes'
@@ -13,6 +14,7 @@ function AppInterna() {
   const [oscuro, setOscuro] = useState(false)
   const [hashSeleccionado, setHashSeleccionado] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
+  const [hojaAbierta, setHojaAbierta] = useState(false)
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', oscuro ? 'dark' : 'light')
@@ -43,16 +45,27 @@ function AppInterna() {
           </span>
         )}
         <div className="flex-1" />
-        {config?.sheet_url && (
-          <a
-            href={config.sheet_url}
-            target="_blank"
-            rel="noreferrer"
+        {config?.demo_mode ? (
+          <button
+            type="button"
+            onClick={() => setHojaAbierta(true)}
             className="inline-flex h-9 items-center gap-1.5 rounded-lg border px-3.5 text-[13px] font-semibold"
             style={{ borderColor: 'var(--to-border)', background: 'var(--to-surface)', color: 'var(--to-ink)' }}
           >
-            Abrir Google Sheet ↗
-          </a>
+            Ver hoja (simulada)
+          </button>
+        ) : (
+          config?.sheet_url && (
+            <a
+              href={config.sheet_url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border px-3.5 text-[13px] font-semibold"
+              style={{ borderColor: 'var(--to-border)', background: 'var(--to-surface)', color: 'var(--to-ink)' }}
+            >
+              Abrir Google Sheet ↗
+            </a>
+          )
         )}
         <button
           type="button"
@@ -64,6 +77,16 @@ function AppInterna() {
           {oscuro ? 'Tema claro' : 'Tema oscuro'}
         </button>
       </header>
+
+      {config?.demo_mode && (
+        <div
+          role="status"
+          className="shrink-0 border-b px-5 py-2.5 text-center text-[13px] font-semibold"
+          style={{ background: 'var(--to-accent-tint)', borderColor: 'var(--to-accent-tint-border)', color: 'var(--to-accent)' }}
+        >
+          Modo demo — los 3 aspirantes y todos sus documentos son inventados. Nada aquí corresponde a una persona real.
+        </div>
+      )}
 
       {config && config.api_version !== API_VERSION_ESPERADA && (
         <div
@@ -109,6 +132,8 @@ function AppInterna() {
           </main>
         )}
       </div>
+
+      {hojaAbierta && <HojaSimulada onCerrar={() => setHojaAbierta(false)} />}
     </div>
   )
 }

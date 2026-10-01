@@ -55,10 +55,24 @@ from pipeline.validacion_admision import (
 RAIZ = Path(__file__).parent.parent
 load_dotenv()
 
+# Modo demo (ver demo/README.md): expedientes 100% inventados (demo/cache_demo,
+# generados por scripts/generar_demo.py), subir expediente nuevo deshabilitado, y
+# "guardar revisión" escribe en demo/hoja_simulada.py en vez de Google Sheets real
+# — para poder mostrar el proyecto en vivo sin ninguna credencial ni dato real.
+DEMO_MODE = os.environ.get("DEMO_MODE") == "1"
+if DEMO_MODE:
+    from demo.hoja_simulada import agregar_fila as _agregar_fila_simulada
+    from demo.hoja_simulada import leer_filas as _leer_hoja_simulada
+
+# ALLOWED_ORIGINS (opcional): orígenes adicionales separados por coma, p. ej. el
+# dominio de Vercel del demo público. Los de desarrollo local siempre se permiten.
+_ORIGENES = ["http://localhost:5173", "http://127.0.0.1:5173"]
+_ORIGENES += [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+
 app = FastAPI(title="API — Panel de revisión TO 2026")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=_ORIGENES,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -237,7 +251,17 @@ def config_publica():
     return {
         "sheet_url": f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/edit" if spreadsheet_id else None,
         "api_version": API_VERSION,
+        "demo_mode": DEMO_MODE,
     }
+
+
+@app.get("/api/demo/hoja")
+def hoja_simulada():
+    """Solo tiene sentido en modo demo: las filas que se han ido "guardando" en esta
+    sesión del demo, como reemplazo de Google Sheets. Ver demo/hoja_simulada.py."""
+    if not DEMO_MODE:
+        raise HTTPException(404, "No disponible fuera del modo demo.")
+    return {"filas": _leer_hoja_simulada()}
 
 
 @app.get("/api/expedientes")
@@ -266,6 +290,8 @@ def imagen_pagina(hash_: str, numero: int, dpi: int = 150, extra: int = 0):
 
 @app.post("/api/expedientes/procesar")
 async def procesar(convocatoria: str = Form(...), archivo: UploadFile = File(...)):
+    if DEMO_MODE:
+        raise HTTPException(403, "Deshabilitado en el demo: los expedientes son fijos y los datos son inventados.")
     if convocatoria not in _CONVOCATORIAS:
         raise HTTPException(400, f"Convocatoria inválida: {convocatoria}")
 
@@ -345,9 +371,11 @@ def guardar_revision(hash_: str, datos: RevisionInput):
         )
 
     try:
-        client = autenticar(str(RAIZ / "service-account.json"))
-        spreadsheet = abrir_spreadsheet(client, os.environ["GOOGLE_SHEETS_SPREADSHEET_ID"])
-        hojas = asegurar_hojas(spreadsheet)
+        hojas = None
+        if not DEMO_MODE:
+            client = autenticar(str(RAIZ / "service-account.json"))
+            spreadsheet = abrir_spreadsheet(client, os.environ["GOOGLE_SHEETS_SPREADSHEET_ID"])
+            hojas = asegurar_hojas(spreadsheet)
 
         inconsistencias = cruzar_experiencia_formulario_vs_constancias(
             formulario.get("experiencia", []), laborales_confirmadas, cfg,
@@ -363,7 +391,12 @@ def guardar_revision(hash_: str, datos: RevisionInput):
         fila_maestro["fecha_revision"] = date.today().isoformat()
 
         id_aspirante = cedula.get("numero", "")
-        upsert_fila(hojas["Maestro"], MAESTRO, "id_aspirante", id_aspirante, fila_maestro)
+        if DEMO_MODE:
+            # Sin Google Sheets real: la fila queda en demo/hoja_simulada.json, que
+            # el panel lee para mostrar "lo que se escribió" al guardar.
+            _agregar_fila_simulada(fila_maestro)
+        else:
+            upsert_fila(hojas["Maestro"], MAESTRO, "id_aspirante", id_aspirante, fila_maestro)
 
         filas_auditoria = [
             {
@@ -402,7 +435,8 @@ def guardar_revision(hash_: str, datos: RevisionInput):
                 "valor_extraido_ia": exp.get("relacionado_sugerido", ""), "valor_corregido_humano": d,
                 "corregido_por": datos.revisado_por, "fecha_correccion": date.today().isoformat(),
             })
-        agregar_filas(hojas["Auditoría"], AUDITORIA, filas_auditoria)
+        if not DEMO_MODE:
+            agregar_filas(hojas["Auditoría"], AUDITORIA, filas_auditoria)
 
         # También en la caché local — "revision_humana" guarda cada respuesta
         # individual (no solo el resultado final) para que al volver a este

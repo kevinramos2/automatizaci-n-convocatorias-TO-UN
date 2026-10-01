@@ -1,6 +1,8 @@
 import type {
+  Config,
   Expediente,
   ExpedienteResumen,
+  FilaHojaSimulada,
   ProcesarResultado,
   RevisionInput,
   RevisionPreview,
@@ -42,8 +44,14 @@ export function listarConvocatorias(): Promise<Record<string, string>> {
 // Debe coincidir con API_VERSION de api/main.py.
 export const API_VERSION_ESPERADA = 3
 
-export function obtenerConfig(): Promise<{ sheet_url: string | null; api_version?: number }> {
+export function obtenerConfig(): Promise<Config> {
   return pedir('/config')
+}
+
+// Solo responde algo con demo_mode=true (ver api/main.py). El equivalente a
+// "abrir el Google Sheet" cuando no hay ningún Google Sheet real.
+export function obtenerHojaSimulada(): Promise<{ filas: FilaHojaSimulada[] }> {
+  return pedir('/demo/hoja')
 }
 
 // `extra`: giro manual en grados (múltiplo de 90) sobre la rotación automática.

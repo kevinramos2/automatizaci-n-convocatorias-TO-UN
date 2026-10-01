@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useConvocatorias, useListaExpedientes, useProcesarExpediente } from '../hooks/useExpedientes'
+import { useConfig, useConvocatorias, useListaExpedientes, useProcesarExpediente } from '../hooks/useExpedientes'
 import { ErrorAPI } from '../api/client'
 
 type Bucket = 'pendientes' | 'admitidos' | 'noadmitidos'
@@ -24,6 +24,8 @@ export function Sidebar({
   const [busqueda, setBusqueda] = useState('')
 
   const { data: expedientes, isLoading } = useListaExpedientes()
+  const { data: config } = useConfig()
+  const demoMode = config?.demo_mode ?? false
 
   const conteos = useMemo(() => {
     const c: Record<Bucket, number> = { pendientes: 0, admitidos: 0, noadmitidos: 0 }
@@ -118,14 +120,20 @@ export function Sidebar({
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={() => setModo('subir')}
-            className="flex h-10 items-center justify-center gap-1.5 rounded-lg border text-[13px] font-semibold"
-            style={{ background: 'var(--to-accent-tint)', borderColor: 'var(--to-accent-tint-border)', color: 'var(--to-accent)' }}
-          >
-            <span className="text-base leading-none" aria-hidden="true">+</span> Subir expediente nuevo
-          </button>
+          {demoMode ? (
+            <p className="rounded-lg border px-3 py-2 text-center text-xs leading-snug" style={{ borderColor: 'var(--to-border)', color: 'var(--to-ink-muted)' }}>
+              Subir expediente deshabilitado en el demo — los 3 aspirantes de prueba son fijos.
+            </p>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setModo('subir')}
+              className="flex h-10 items-center justify-center gap-1.5 rounded-lg border text-[13px] font-semibold"
+              style={{ background: 'var(--to-accent-tint)', borderColor: 'var(--to-accent-tint-border)', color: 'var(--to-accent)' }}
+            >
+              <span className="text-base leading-none" aria-hidden="true">+</span> Subir expediente nuevo
+            </button>
+          )}
         </>
       ) : (
         <SubirExpediente

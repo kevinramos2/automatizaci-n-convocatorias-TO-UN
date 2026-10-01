@@ -7,6 +7,7 @@ vez que se ve un PDF; después se reutiliza el resultado guardado.
 """
 import hashlib
 import json
+import os
 from dataclasses import asdict
 from pathlib import Path
 
@@ -19,7 +20,15 @@ from pipeline.validacion_admision import ResultadoRegla
 # (La pérdida real de datos que motivó este cambio no fue por OneDrive: fue un
 # bug en tests/test_cache_expedientes.py que hacía shutil.rmtree() de esta
 # carpeta entera al limpiar después de una prueba — ya corregido.)
-CARPETA_CACHE = Path.home() / "AplicativoTO_cache" / "expedientes_procesados"
+#
+# DEMO_MODE=1 (ver demo/README.md) redirige esto a demo/cache_demo — expedientes
+# 100% inventados que sí se commitean — para que el demo público nunca pueda leer
+# ni ver, ni por accidente, la caché real de esta máquina.
+CARPETA_CACHE = (
+    Path(__file__).resolve().parent.parent / "demo" / "cache_demo"
+    if os.environ.get("DEMO_MODE") == "1"
+    else Path.home() / "AplicativoTO_cache" / "expedientes_procesados"
+)
 
 
 def hash_archivo(contenido_bytes: bytes) -> str:

@@ -67,6 +67,12 @@ pipeline/  (Python)                    api/ (FastAPI)              frontend/ (Re
   interacción que necesitaba (clic en una imagen para verla en grande, atajos de teclado, estado
   que se recuerda entre pasos), manteniendo el mismo backend de Python.
 
+## Demo
+
+Hay un modo demo (`DEMO_MODE=1`) con 3 aspirantes 100% inventados — ninguna credencial, ningún
+dato real — pensado para mostrar el flujo completo sin depender de Google Sheets ni de la API de
+Anthropic. Ver [`demo/README.md`](./demo/README.md).
+
 ## Stack
 
 Python · FastAPI · React · TypeScript · Vite · TanStack Query · Tailwind CSS · API de Claude

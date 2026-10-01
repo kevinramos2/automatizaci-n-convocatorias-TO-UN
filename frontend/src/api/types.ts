@@ -148,3 +148,15 @@ export interface ProcesarResultado {
   costo_usd: number
   uso?: { input_tokens: number; output_tokens: number }
 }
+
+export interface Config {
+  sheet_url: string | null
+  api_version?: number
+  demo_mode?: boolean
+}
+
+// Una fila de demo/hoja_simulada.json — el reemplazo de Google Sheets en el demo
+// público. Las claves son las mismas columnas de la pestaña Maestro real
+// (pipeline/esquema_sheets.py), así que se listan dinámicamente en la tabla.
+export type FilaHojaSimulada = Record<string, string>
+

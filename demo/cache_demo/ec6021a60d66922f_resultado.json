@@ -1,0 +1,229 @@
+{
+  "paginas_blancas": [],
+  "clasificacion": [],
+  "documentos_logicos": [],
+  "documentos_extraidos": [
+    {
+      "tipo_final": "formulario_inscripcion",
+      "paginas": [
+        1
+      ],
+      "datos": {
+        "clasificacion_correcta": true,
+        "numero_proceso_declarado": "TO-01",
+        "cargo_declarado_encabezado": "TO-01",
+        "cargo_declarado_requisitos": "TO-01",
+        "fecha_inscripcion": "2026-09-10",
+        "nombre": "ASPIRANTE DE PRUEBA UNO",
+        "cedula": "1000000001",
+        "correo": "aspirante.prueba@ejemplo.test",
+        "celular": "3000000000",
+        "telefono_fijo": null,
+        "direccion": "Calle de prueba # 0-00, Yopal",
+        "discapacidad": "No",
+        "tipo_discapacidad": null,
+        "certificado_alturas_fecha_declarada": "2026-06-01",
+        "evaluacion_medica_fecha_declarada": "2026-09-01",
+        "educacion_formal": [],
+        "educacion_relacionada": [],
+        "experiencia": [
+          {
+            "numero_fila": 1,
+            "cargo_desempenado": "Auxiliar de jardinería",
+            "entidad": "Vivero de Prueba S.A.S.",
+            "funcion_principal": "Siembra, poda y mantenimiento de zonas verdes (dato de prueba).",
+            "fecha_desde": "2023-01-15",
+            "fecha_hasta": "2024-12-15",
+            "total_meses_declarado": null
+          }
+        ],
+        "firma_presente": true
+      },
+      "reclasificado_automaticamente": false,
+      "requiere_revision_tipo": false,
+      "uso": {
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    },
+    {
+      "tipo_final": "cedula",
+      "paginas": [
+        2
+      ],
+      "datos": {
+        "clasificacion_correcta": true,
+        "aportada": true,
+        "numero": "1000000001",
+        "nombre": "ASPIRANTE DE PRUEBA UNO",
+        "legible": true
+      },
+      "reclasificado_automaticamente": false,
+      "requiere_revision_tipo": false,
+      "uso": {
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    }
+  ],
+  "formulario": {
+    "clasificacion_correcta": true,
+    "numero_proceso_declarado": "TO-01",
+    "cargo_declarado_encabezado": "TO-01",
+    "cargo_declarado_requisitos": "TO-01",
+    "fecha_inscripcion": "2026-09-10",
+    "nombre": "ASPIRANTE DE PRUEBA UNO",
+    "cedula": "1000000001",
+    "correo": "aspirante.prueba@ejemplo.test",
+    "celular": "3000000000",
+    "telefono_fijo": null,
+    "direccion": "Calle de prueba # 0-00, Yopal",
+    "discapacidad": "No",
+    "tipo_discapacidad": null,
+    "certificado_alturas_fecha_declarada": "2026-06-01",
+    "evaluacion_medica_fecha_declarada": "2026-09-01",
+    "educacion_formal": [],
+    "educacion_relacionada": [],
+    "experiencia": [
+      {
+        "numero_fila": 1,
+        "cargo_desempenado": "Auxiliar de jardinería",
+        "entidad": "Vivero de Prueba S.A.S.",
+        "funcion_principal": "Siembra, poda y mantenimiento de zonas verdes (dato de prueba).",
+        "fecha_desde": "2023-01-15",
+        "fecha_hasta": "2024-12-15",
+        "total_meses_declarado": null
+      }
+    ],
+    "firma_presente": true
+  },
+  "cedula": {
+    "clasificacion_correcta": true,
+    "aportada": true,
+    "numero": "1000000001",
+    "nombre": "ASPIRANTE DE PRUEBA UNO",
+    "legible": true
+  },
+  "estudios": [
+    {
+      "clasificacion_correcta": true,
+      "institucion": "Institución Educativa de Prueba",
+      "titulo": "Bachiller Académico",
+      "ultimo_anio_cursado": "11",
+      "nivel": "secundaria",
+      "es_boletin": false,
+      "nombre_curso": null,
+      "horas": null,
+      "fecha_inicio": null,
+      "fecha_fin": "2010-12-01",
+      "paginas": [
+        3
+      ],
+      "relacionado_sugerido": null,
+      "justificacion_relacionado": null,
+      "relacionado": "PENDIENTE"
+    },
+    {
+      "clasificacion_correcta": true,
+      "institucion": "SENA (de prueba)",
+      "titulo": null,
+      "ultimo_anio_cursado": null,
+      "nivel": "curso_capacitacion",
+      "es_boletin": false,
+      "nombre_curso": "Jardinería y paisajismo",
+      "horas": 220,
+      "fecha_inicio": "2024-01-10",
+      "fecha_fin": "2024-03-10",
+      "paginas": [
+        4
+      ],
+      "relacionado_sugerido": "SI",
+      "justificacion_relacionado": "El curso es de jardinería, directamente relacionado con el cargo.",
+      "relacionado": "PENDIENTE"
+    }
+  ],
+  "laborales": [
+    {
+      "clasificacion_correcta": true,
+      "entidad": "Vivero de Prueba S.A.S.",
+      "cargo": "Auxiliar de jardinería",
+      "jornada": null,
+      "fecha_inicio": "2023-01-15",
+      "fecha_fin": "2024-12-15",
+      "funciones": "Siembra, poda y mantenimiento de zonas verdes (dato de prueba).",
+      "firmada_jefe": true,
+      "es_declaracion_jurada_independiente": false,
+      "notariada": null,
+      "formato_valido": true,
+      "paginas": [
+        5
+      ],
+      "relacionado_sugerido": "SI",
+      "justificacion_relacionado": "Cargo y funciones directamente relacionados con jardinería.",
+      "relacionado": "PENDIENTE"
+    }
+  ],
+  "alturas": {
+    "clasificacion_correcta": true,
+    "aportado": true,
+    "entidad_emisora": "Centro de Prueba de Alturas",
+    "fecha_expedicion": "2026-06-01",
+    "fecha_vencimiento": "2027-06-01",
+    "paginas": [
+      6
+    ]
+  },
+  "medica": {
+    "clasificacion_correcta": true,
+    "aportado": true,
+    "entidad_emisora": "IPS de Prueba",
+    "fecha_expedicion": "2026-09-01",
+    "concepto_aptitud_alturas": true,
+    "es_certificado_preingreso_general": false,
+    "paginas": [
+      7
+    ]
+  },
+  "resultados_validacion": {
+    "formulario": {
+      "estado": "requiere_revision_manual",
+      "motivo": "Formulario completo y coincidente; pendiente confirmar la entrega del formulario y la cédula"
+    },
+    "cedula": {
+      "estado": "cumple",
+      "motivo": "Cédula aportada y legible"
+    },
+    "estudio": {
+      "estado": "cumple",
+      "motivo": "1 constancia(s) de estudio válida(s); acredita el nivel mínimo exigido"
+    },
+    "laboral": {
+      "estado": "requiere_revision_manual",
+      "motivo": "0 meses confirmados; 1 experiencia(s) pendiente(s) de confirmar si están relacionadas con el cargo"
+    },
+    "alturas": {
+      "estado": "cumple",
+      "motivo": "Certificado de alturas vigente hasta 2027-06-01 (cierre de inscripción: 2026-09-18)"
+    },
+    "medica": {
+      "estado": "cumple",
+      "motivo": "Evaluación médica expedida el 2026-09-01, dentro de la ventana de 30 días previos al cierre"
+    }
+  },
+  "decision": {
+    "estado_sugerido": "PENDIENTE DE REVISIÓN",
+    "causal_sugerida": null,
+    "items_pendientes": [
+      "formulario",
+      "laboral"
+    ]
+  },
+  "inconsistencias": [],
+  "uso_total": {
+    "input_tokens": 0,
+    "output_tokens": 0
+  },
+  "convocatoria": "TO-01",
+  "rotacion": 0,
+  "rotaciones_paginas": {}
+}

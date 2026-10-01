@@ -1,0 +1,203 @@
+{
+  "paginas_blancas": [],
+  "clasificacion": [],
+  "documentos_logicos": [],
+  "documentos_extraidos": [
+    {
+      "tipo_final": "formulario_inscripcion",
+      "paginas": [
+        1
+      ],
+      "datos": {
+        "clasificacion_correcta": true,
+        "numero_proceso_declarado": "TO-02",
+        "cargo_declarado_encabezado": "TO-02",
+        "cargo_declarado_requisitos": "TO-02",
+        "fecha_inscripcion": "2026-09-10",
+        "nombre": "ASPIRANTE DE PRUEBA DOS",
+        "cedula": "1000000002",
+        "correo": "aspirante.prueba@ejemplo.test",
+        "celular": "3000000000",
+        "telefono_fijo": null,
+        "direccion": "Calle de prueba # 0-00, Yopal",
+        "discapacidad": "No",
+        "tipo_discapacidad": null,
+        "certificado_alturas_fecha_declarada": null,
+        "evaluacion_medica_fecha_declarada": null,
+        "educacion_formal": [],
+        "educacion_relacionada": [],
+        "experiencia": [
+          {
+            "numero_fila": 1,
+            "cargo_desempenado": "Ayudante de obra",
+            "entidad": "Constructora de Prueba Ltda.",
+            "funcion_principal": "Apoyo general en obra (dato de prueba).",
+            "fecha_desde": "2026-01-01",
+            "fecha_hasta": "2026-08-30",
+            "total_meses_declarado": null
+          }
+        ],
+        "firma_presente": true
+      },
+      "reclasificado_automaticamente": false,
+      "requiere_revision_tipo": false,
+      "uso": {
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    },
+    {
+      "tipo_final": "cedula",
+      "paginas": [
+        2
+      ],
+      "datos": {
+        "clasificacion_correcta": true,
+        "aportada": true,
+        "numero": "1000000002",
+        "nombre": "ASPIRANTE DE PRUEBA DOS",
+        "legible": true
+      },
+      "reclasificado_automaticamente": false,
+      "requiere_revision_tipo": false,
+      "uso": {
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    }
+  ],
+  "formulario": {
+    "clasificacion_correcta": true,
+    "numero_proceso_declarado": "TO-02",
+    "cargo_declarado_encabezado": "TO-02",
+    "cargo_declarado_requisitos": "TO-02",
+    "fecha_inscripcion": "2026-09-10",
+    "nombre": "ASPIRANTE DE PRUEBA DOS",
+    "cedula": "1000000002",
+    "correo": "aspirante.prueba@ejemplo.test",
+    "celular": "3000000000",
+    "telefono_fijo": null,
+    "direccion": "Calle de prueba # 0-00, Yopal",
+    "discapacidad": "No",
+    "tipo_discapacidad": null,
+    "certificado_alturas_fecha_declarada": null,
+    "evaluacion_medica_fecha_declarada": null,
+    "educacion_formal": [],
+    "educacion_relacionada": [],
+    "experiencia": [
+      {
+        "numero_fila": 1,
+        "cargo_desempenado": "Ayudante de obra",
+        "entidad": "Constructora de Prueba Ltda.",
+        "funcion_principal": "Apoyo general en obra (dato de prueba).",
+        "fecha_desde": "2026-01-01",
+        "fecha_hasta": "2026-08-30",
+        "total_meses_declarado": null
+      }
+    ],
+    "firma_presente": true
+  },
+  "cedula": {
+    "clasificacion_correcta": true,
+    "aportada": true,
+    "numero": "1000000002",
+    "nombre": "ASPIRANTE DE PRUEBA DOS",
+    "legible": true
+  },
+  "estudios": [
+    {
+      "clasificacion_correcta": true,
+      "institucion": "Colegio de Prueba",
+      "titulo": "Bachiller Técnico",
+      "ultimo_anio_cursado": "11",
+      "nivel": "secundaria",
+      "es_boletin": false,
+      "nombre_curso": null,
+      "horas": null,
+      "fecha_inicio": null,
+      "fecha_fin": "2015-12-01",
+      "paginas": [
+        3
+      ],
+      "relacionado_sugerido": null,
+      "justificacion_relacionado": null,
+      "relacionado": "PENDIENTE"
+    }
+  ],
+  "laborales": [
+    {
+      "clasificacion_correcta": true,
+      "entidad": "Constructora de Prueba Ltda.",
+      "cargo": "Ayudante de obra",
+      "jornada": null,
+      "fecha_inicio": "2026-01-01",
+      "fecha_fin": "2026-08-30",
+      "funciones": "Apoyo general en obra (dato de prueba).",
+      "firmada_jefe": true,
+      "es_declaracion_jurada_independiente": false,
+      "notariada": null,
+      "formato_valido": true,
+      "paginas": [
+        4
+      ],
+      "relacionado_sugerido": "SI",
+      "justificacion_relacionado": "Cargo relacionado, pero no alcanza el mínimo de 12 meses.",
+      "relacionado": "PENDIENTE"
+    }
+  ],
+  "alturas": {
+    "clasificacion_correcta": true,
+    "aportado": false,
+    "entidad_emisora": null,
+    "fecha_expedicion": null,
+    "fecha_vencimiento": null,
+    "paginas": []
+  },
+  "medica": {
+    "clasificacion_correcta": true,
+    "aportado": false,
+    "entidad_emisora": null,
+    "fecha_expedicion": null,
+    "concepto_aptitud_alturas": null,
+    "es_certificado_preingreso_general": false,
+    "paginas": []
+  },
+  "resultados_validacion": {
+    "formulario": {
+      "estado": "requiere_revision_manual",
+      "motivo": "Formulario completo y coincidente; pendiente confirmar la entrega del formulario y la cédula"
+    },
+    "cedula": {
+      "estado": "cumple",
+      "motivo": "Cédula aportada y legible"
+    },
+    "estudio": {
+      "estado": "cumple",
+      "motivo": "1 constancia(s) de estudio válida(s); acredita el nivel mínimo exigido"
+    },
+    "laboral": {
+      "estado": "no_cumple",
+      "motivo": "Máximo 7 meses de experiencia relacionada posibles, no alcanza el mínimo de 12"
+    },
+    "alturas": {
+      "estado": "no_cumple",
+      "motivo": "No se aportó certificado de trabajo seguro en alturas"
+    },
+    "medica": {
+      "estado": "no_cumple",
+      "motivo": "No se aportó evaluación médica ocupacional"
+    }
+  },
+  "decision": {
+    "estado_sugerido": "NO ADMITIDO",
+    "causal_sugerida": "Numeral 2.5.3 - Incumplimiento de requisitos mínimos. laboral: Máximo 7 meses de experiencia relacionada posibles, no alcanza el mínimo de 12 | alturas: No se aportó certificado de trabajo seguro en alturas | medica: No se aportó evaluación médica ocupacional"
+  },
+  "inconsistencias": [],
+  "uso_total": {
+    "input_tokens": 0,
+    "output_tokens": 0
+  },
+  "convocatoria": "TO-02",
+  "rotacion": 0,
+  "rotaciones_paginas": {}
+}
