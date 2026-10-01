@@ -43,14 +43,44 @@ python scripts/generar_demo.py
 rm -f demo/hoja_simulada.json
 ```
 
-## Desplegarlo
+## Desplegarlo (Render + Vercel, ambos con capa gratis)
 
-1. **Backend** (Render, Fly.io o similar): desplegar la raíz del repo, comando de arranque
-   `uvicorn api.main:app --host 0.0.0.0 --port $PORT`, con una sola variable de entorno:
-   `DEMO_MODE=1`. No necesita `ANTHROPIC_API_KEY` ni `GOOGLE_SHEETS_SPREADSHEET_ID` ni
-   `service-account.json`.
-2. **Frontend** (Vercel): desplegar `frontend/`, con `API_URL` apuntando a la URL pública del
-   backend del paso anterior (o ajustar `frontend/vite.config.ts` / las llamadas de
-   `frontend/src/api/client.ts` si el hosting elegido no soporta un proxy de `/api`).
-3. Agregar la variable de entorno `ALLOWED_ORIGINS` al backend con el dominio que asigne Vercel
-   (p. ej. `ALLOWED_ORIGINS=https://tu-demo.vercel.app`) — ya no hace falta tocar código.
+### 1. Backend en Render
+
+1. [render.com](https://render.com) → crear cuenta con GitHub → **New +** → **Web Service** →
+   elegir el repo `automatizaci-n-convocatorias-TO-UN`.
+2. Configuración:
+   - **Root Directory**: vacío (el backend vive en la raíz del repo).
+   - **Runtime**: Python 3 (toma la versión de [`runtime.txt`](../runtime.txt) sola).
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `uvicorn api.main:app --host 0.0.0.0 --port $PORT`
+   - **Instance Type**: Free.
+3. **Environment** → agregar variable `DEMO_MODE` = `1`. Nada más — no hace falta
+   `ANTHROPIC_API_KEY`, `GOOGLE_SHEETS_SPREADSHEET_ID` ni `service-account.json`.
+4. Deploy. Copiar la URL que asigna (algo como `https://automatizacion-to.onrender.com`).
+5. Verificar: abrir `<esa URL>/api/config` en el navegador → debe responder
+   `{"demo_mode": true, ...}`.
+
+   La capa gratis de Render apaga el servicio tras ~15 min sin tráfico; la primera visita
+   después de eso tarda unos 30-60s en responder mientras arranca — normal, no es un error.
+
+### 2. Frontend en Vercel
+
+1. [vercel.com](https://vercel.com) → crear cuenta con GitHub → **Add New** → **Project** →
+   el mismo repo.
+2. **Root Directory**: `frontend` (obligatorio — es la única carpeta con `package.json` del
+   lado de la interfaz). Framework: Vite (se detecta solo).
+3. **Environment Variables** → agregar `VITE_API_URL` = la URL de Render del paso anterior,
+   **sin** `/` final (p. ej. `https://automatizacion-to.onrender.com`).
+4. Deploy. Copiar la URL que asigna Vercel (algo como `https://to-demo.vercel.app`).
+
+### 3. Conectar los dos (CORS)
+
+Volver a Render → **Environment** → agregar `ALLOWED_ORIGINS` = la URL exacta de Vercel del
+paso anterior (p. ej. `ALLOWED_ORIGINS=https://to-demo.vercel.app`) → guardar (Render reinicia
+el servicio solo).
+
+### 4. Probar
+
+Abrir la URL de Vercel: debe salir el aviso de "Modo demo", los 3 aspirantes en Pendientes, y
+"Ver hoja (simulada)" debe llenarse al guardar una revisión de prueba.
